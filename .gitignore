@@ -60,10 +60,7 @@ tmp/
 generated_charts/
 
 # Parquet files
-data/parquet/
-data/parquet_cleaned/
 
-# Specific project files to ignore
-Relatorio_integracao_1308.md
-Melhorias_Projeto.txt
-plano_de_melhorias.md
+data/parquet/
+
+data/parquet_cleaned/
