@@ -15,6 +15,8 @@ from core.tools.chart_tools import (
     gerar_analise_distribuicao_estoque,
     gerar_grafico_pizza_categorias,
     gerar_dashboard_analise_completa,
+    gerar_grafico_vendas_por_produto,
+    gerar_grafico_automatico,
     chart_tools
 )
 
@@ -171,7 +173,7 @@ def test_erro_quando_nenhum_dado_disponivel(mock_manager):
 
 def test_chart_tools_disponibilidade():
     """Verifica disponibilidade de todas as ferramentas."""
-    assert len(chart_tools) == 6
+    assert len(chart_tools) == 8
 
     tool_names = [tool.name for tool in chart_tools]
     expected = [
@@ -180,11 +182,62 @@ def test_chart_tools_disponibilidade():
         'gerar_comparacao_precos_categorias',
         'gerar_analise_distribuicao_estoque',
         'gerar_grafico_pizza_categorias',
-        'gerar_dashboard_analise_completa'
+        'gerar_dashboard_analise_completa',
+        'gerar_grafico_vendas_por_produto',
+        'gerar_grafico_automatico'
     ]
 
     for tool_name in expected:
         assert tool_name in tool_names
+
+
+@patch('core.tools.chart_tools.get_data_manager')
+def test_gerar_grafico_vendas_por_produto(mock_manager, mock_data):
+    """Testa geração de gráfico de vendas por produto."""
+    mock_dm = MagicMock()
+    mock_dm.get_data.return_value = mock_data
+    mock_manager.return_value = mock_dm
+
+    resultado = gerar_grafico_vendas_por_produto.invoke({
+        "codigo_produto": 1,
+        "unidade": "SCR"
+    })
+
+    assert resultado['status'] == 'success'
+    assert 'chart_data' in resultado or 'message' in resultado
+    assert resultado['chart_type'] in [
+        'line_temporal', 'vendas_produto'
+    ]
+
+
+@patch('core.tools.chart_tools.get_data_manager')
+def test_gerar_grafico_automatico(mock_manager, mock_data):
+    """Testa geração automática de gráficos por descrição."""
+    mock_dm = MagicMock()
+    mock_dm.get_data.return_value = mock_data
+    mock_manager.return_value = mock_dm
+
+    # Teste com descrição de vendas por categoria
+    resultado = gerar_grafico_automatico.invoke({
+        "descricao": "gráfico de vendas por categoria"
+    })
+
+    assert resultado['status'] == 'success'
+    assert 'chart_data' in resultado or 'message' in resultado
+
+    # Teste com descrição de estoque
+    resultado = gerar_grafico_automatico.invoke({
+        "descricao": "mostrar estoque disponível por produto"
+    })
+
+    assert resultado['status'] == 'success'
+
+    # Teste com descrição de dashboard
+    resultado = gerar_grafico_automatico.invoke({
+        "descricao": "dashbord completo da análise"
+    })
+
+    assert resultado['status'] == 'success'
 
 
 if __name__ == "__main__":
