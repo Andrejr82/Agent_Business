@@ -14,6 +14,7 @@ from core.llm_langchain_adapter import CustomLangChainLLM
 
 from core.tools.unified_data_tools import unified_tools
 from core.tools.date_time_tools import date_time_tools
+from core.tools.chart_tools import chart_tools
 
 
 class ToolAgent:
@@ -21,11 +22,15 @@ class ToolAgent:
         self.logger = logging.getLogger(__name__)
         self.llm_adapter = llm_adapter
         
-        self.langchain_llm = CustomLangChainLLM(llm_adapter=self.llm_adapter)
+        self.langchain_llm = CustomLangChainLLM(
+            llm_adapter=self.llm_adapter
+        )
         
-        self.tools = unified_tools + date_time_tools
+        self.tools = unified_tools + date_time_tools + chart_tools
         self.agent_executor = self._create_agent_executor()
-        self.logger.info("ToolAgent com OpenAI Tools Agent inicializado.")
+        self.logger.info(
+            "ToolAgent com OpenAI Tools Agent inicializado."
+        )
 
     def _create_agent_executor(self) -> AgentExecutor:
         """Cria e retorna um AgentExecutor com o agente de ferramentas OpenAI."""

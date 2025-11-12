@@ -9,12 +9,14 @@ from core.agent_state import AgentState
 from core.agents.caculinha_bi_agent import (bi_tools,
                                             caculinha_bi_agent_runnable)
 from core.agents.supervisor import RouteDecision, supervisor_router_runnable
+from core.tools.chart_tools import chart_tools
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 bi_tool_node = ToolNode(bi_tools)
+chart_tool_node = ToolNode(chart_tools)
 
 
 def supervisor_node_func(state: AgentState) -> dict:
@@ -85,6 +87,25 @@ def route_from_bi_agent(state: AgentState) -> Literal["bi_tools", "__end__"]:
     return "__end__"
 
 
+def process_chart_tool_output_func(state: AgentState) -> dict:
+    """Processa a saída de uma ferramenta de gráficos."""
+    logger.info("--- Process Chart Tool Output Node ---")
+    last_msg = state["messages"][-1]
+    updates = {}
+
+    if not hasattr(last_msg, "name"):
+        return updates
+
+    if hasattr(last_msg, "content") and isinstance(last_msg.content, dict):
+        content = last_msg.content
+        if "chart_data" in content:
+            updates["chart_data"] = content.get("chart_data")
+        if "summary" in content:
+            updates["chart_summary"] = content.get("summary")
+
+    return updates
+
+
 def build_graph():
     """Constrói e compila o grafo de execução do LangGraph."""
     workflow = StateGraph(AgentState)
@@ -92,14 +113,22 @@ def build_graph():
     workflow.add_node("supervisor", supervisor_node_func)
     workflow.add_node("caculinha_bi_agent", bi_agent_node_func)
     workflow.add_node("bi_tools", bi_tool_node)
+    workflow.add_node("chart_tools", chart_tool_node)
     workflow.add_node("process_bi_tool_output", process_bi_tool_output_func)
+    workflow.add_node(
+        "process_chart_tool_output",
+        process_chart_tool_output_func
+    )
 
     workflow.set_entry_point("supervisor")
 
     workflow.add_conditional_edges(
         "supervisor",
         route_from_supervisor,
-        {"caculinha_bi_agent": "caculinha_bi_agent", "__end__": END},
+        {
+            "caculinha_bi_agent": "caculinha_bi_agent",
+            "__end__": END
+        },
     )
     workflow.add_conditional_edges(
         "caculinha_bi_agent",
@@ -108,7 +137,9 @@ def build_graph():
     )
 
     workflow.add_edge("bi_tools", "process_bi_tool_output")
+    workflow.add_edge("chart_tools", "process_chart_tool_output")
     workflow.add_edge("process_bi_tool_output", "caculinha_bi_agent")
+    workflow.add_edge("process_chart_tool_output", "caculinha_bi_agent")
 
     app = workflow.compile()
     logger.info("Grafo LangGraph compilado com sucesso!")
