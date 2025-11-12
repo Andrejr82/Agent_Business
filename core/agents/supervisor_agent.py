@@ -18,7 +18,10 @@ class SupervisorAgent:
         'vendas', 'estoque', 'distribuição', 'distribuicao',
         'análise', 'analise', 'comparação', 'comparacao',
         'pizza', 'barras', 'linha', 'histograma', 'dashboard',
-        'plot', 'plotar', 'desenhar'
+        'plot', 'plotar', 'desenhar',
+        'temporal', 'série', 'serie', 'evolução', 'evolucao',
+        'mensal', 'mês', 'mes', 'semanal', 'trend', 'tendência', 'tendencia',
+        'produto', 'sku', 'código', 'codigo'
     ]
     
     def __init__(self, openai_adapter: OpenAILLMAdapter):

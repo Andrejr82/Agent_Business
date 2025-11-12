@@ -34,11 +34,17 @@ class ToolAgent:
         )
 
     def _create_agent_executor(self) -> AgentExecutor:
-        """Cria e retorna um AgentExecutor com o agente de ferramentas OpenAI."""
+        """Cria e retorna um AgentExecutor com agente de ferramentas."""
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", "Você é um assistente de BI útil e eficiente. Use as ferramentas disponíveis para responder às perguntas do usuário de forma direta."),
-                MessagesPlaceholder(variable_name="chat_history"), # Add chat history placeholder
+                (
+                    "system",
+                    "Você é assistente de BI especializado em gráficos. "
+                    "Use ferramentas para responder diretamente. "
+                    "REGRA: Produto específico + gráfico → "
+                    "gerar_grafico_vendas_mensais_produto(codigo_produto=N)"
+                ),
+                MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
             ]

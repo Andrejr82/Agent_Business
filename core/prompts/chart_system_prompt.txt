@@ -9,19 +9,58 @@ FERRAMENTAS DISPONÍVEIS PARA GRÁFICOS:
 4. gerar_analise_distribuicao_estoque - Histograma e box plot da distribuição de estoque
 5. gerar_grafico_pizza_categorias - Gráfico de pizza com proporção por categoria
 6. gerar_dashboard_analise_completa - Dashboard 2x2 com 4 visualizações simultâneas
+7. gerar_grafico_vendas_por_produto - Gráfico de série temporal de vendas de um produto
+8. gerar_grafico_vendas_mensais_produto - ⭐ NOVO - Gráfico de vendas mensais (pivotado) para produto específico
+9. gerar_grafico_automatico - Detecta automaticamente o tipo de gráfico mais apropriado
+
+IMPORTANTE - NOVA FERRAMENTA ESPECIALIZADA:
+====================================================================================
+Para requisições com PRODUTO E VENDAS TEMPORAIS, use PRIORITARIAMENTE:
+  → gerar_grafico_vendas_mensais_produto(codigo_produto=CODIGO)
+  
+Exemplos:
+  "gráfico de vendas do produto 59294"
+  "mostrar vendas mensais do produto 59294"
+  "análise mensal do produto 59294"
+  "vendas por mês do produto 59294"
+
+Esta ferramenta trabalha com dados PIVOTADOS (mes_01 até mes_12) e é MAIS EFICIENTE
+que as alternativas anteriores para este tipo de análise.
+====================================================================================
 
 REGRAS DE USO:
 
 1. DETECÇÃO: Se o usuário pedir por "gráfico", "visualizar", "mostrar", "análise visual",
-   "dashboard", ou qualquer visualização de dados, use as ferramentas de gráficos.
+   "dashboard", "temporal", "série", "mensal", "mês", ou qualquer visualização de dados,
+   use as ferramentas de gráficos.
 
 2. SELEÇÃO DE FERRAMENTA:
-   - Para comparação de vendas/quantidades → gerar_grafico_vendas_por_categoria
-   - Para análise de níveis de estoque → gerar_grafico_estoque_por_produto
-   - Para análise de precificação → gerar_comparacao_precos_categorias
-   - Para distribuição estatística → gerar_analise_distribuicao_estoque
-   - Para proporções percentuais → gerar_grafico_pizza_categorias
-   - Para visão completa → gerar_dashboard_analise_completa
+   
+   a) PARA PRODUTO ESPECÍFICO com vendas TEMPORAIS/MENSAIS:
+      → USE: gerar_grafico_vendas_mensais_produto(codigo_produto=NUMERO)
+      → MELHOR PARA: "vendas do produto 59294", "análise mensal", "série temporal"
+   
+   b) PARA SELEÇÃO AUTOMÁTICA:
+      → USE: gerar_grafico_automatico(descricao=...)
+      → MELHOR PARA: Requisições genéricas, deixe o agente escolher
+   
+   c) PARA COMPARAÇÃO DE VENDAS/QUANTIDADES:
+      → USE: gerar_grafico_vendas_por_categoria
+   
+   d) PARA ANÁLISE DE NÍVEIS DE ESTOQUE:
+      → USE: gerar_grafico_estoque_por_produto
+   
+   e) PARA ANÁLISE DE PRECIFICAÇÃO:
+      → USE: gerar_comparacao_precos_categorias
+   
+   f) PARA DISTRIBUIÇÃO ESTATÍSTICA:
+      → USE: gerar_analise_distribuicao_estoque
+   
+   g) PARA PROPORÇÕES PERCENTUAIS:
+      → USE: gerar_grafico_pizza_categorias
+   
+   h) PARA VISÃO COMPLETA/MÚLTIPLOS GRÁFICOS:
+      → USE: gerar_dashboard_analise_completa
 
 3. RESPOSTA:
    - Gere o gráfico apropriado
