@@ -1008,7 +1008,8 @@ def gerar_grafico_automatico(descricao: str) -> Dict[str, Any]:
         word in descricao_lower
         for word in [
             'produto', 'temporal', 'série', 'serie',
-            'evolução', 'evolucao', 'produto', 'sku'
+            'evolução', 'evolucao', 'sku', 'mensal',
+            'mês', 'mes', 'vendas produto'
         ]
     ):
         logger.info("Detectado: Gráfico de vendas por produto")
@@ -1017,15 +1018,248 @@ def gerar_grafico_automatico(descricao: str) -> Dict[str, Any]:
         match = re.search(r'\d+', descricao)
         codigo = int(match.group()) if match else 59294
 
-        return gerar_grafico_vendas_por_produto.invoke({
+        # Tentar usar a versão com dados mensais pivotados (estrutura real)
+        resultado = gerar_grafico_vendas_mensais_produto.invoke({
             "codigo_produto": codigo,
-            "unidade": "SCR"
+            "unidade_filtro": None
         })
+
+        # Se falhar, retornar gráfico de série temporal alternativo
+        if resultado.get('status') == 'error':
+            logger.info("Gráfico mensal falhou, tentando série temporal")
+            return gerar_grafico_vendas_por_produto.invoke({
+                "codigo_produto": codigo,
+                "unidade": "SCR"
+            })
+
+        return resultado
 
     else:
         # Por padrão, gera dashboard completo
         logger.info("Tipo não reconhecido, gerando dashboard padrão")
         return gerar_dashboard_analise_completa.invoke({})
+
+
+@tool
+def gerar_grafico_vendas_mensais_produto(
+    codigo_produto: int = 59294,
+    unidade_filtro: str = ""
+) -> Dict[str, Any]:
+    """
+    Gera gráfico de vendas mensais para um produto específico.
+    Trabalha com estrutura pivotada de dados (mes_01 até mes_12).
+    
+    Args:
+        codigo_produto: Código do produto (padrão: 59294)
+        unidade_filtro: Unidade para filtrar (default: vazio)
+        
+    Returns:
+        Dicionário com gráfico de vendas mensais
+    """
+    logger.info(
+        f"Gerando gráfico de vendas mensais do produto {codigo_produto}"
+    )
+
+    try:
+        manager = get_data_manager()
+
+        # Tentar carregar dados
+        df = None
+        for tabela in ['ADMAT_REBUILT', 'admmatao', 'ADMAT', 'master_catalog']:
+            try:
+                df = manager.get_data(tabela, limit=50000)
+                if not df.empty:
+                    logger.info(f"Dados carregados de {tabela}")
+                    break
+            except Exception as e:
+                logger.debug(f"Erro ao tentar {tabela}: {e}")
+                continue
+
+        if df is None or df.empty:
+            return {
+                "status": "error",
+                "message": "Não foi possível carregar dados"
+            }
+
+        # Normalizar nomes de colunas
+        df.columns = df.columns.str.lower()
+
+        # Procurar coluna de código
+        codigo_col = next(
+            (c for c in df.columns if 'codigo' in c or 'code' in c),
+            None
+        )
+
+        if not codigo_col:
+            return {
+                "status": "error",
+                "message": "Coluna de código de produto não encontrada"
+            }
+
+        # Filtrar por código do produto
+        df_produto = df[df[codigo_col] == codigo_produto].copy()
+
+        if df_produto.empty:
+            return {
+                "status": "error",
+                "message": (
+                    f"Produto {codigo_produto} não encontrado. "
+                    "Verifique o código informado."
+                )
+            }
+
+        # Se houver filtro de unidade, aplicar
+        if unidade_filtro:
+            une_cols = [c for c in df_produto.columns if 'une' in c]
+            if une_cols:
+                df_produto = df_produto[
+                    df_produto[une_cols[0]].astype(str).str.contains(
+                        unidade_filtro,
+                        case=False,
+                        na=False
+                    )
+                ]
+
+        if df_produto.empty:
+            return {
+                "status": "error",
+                "message": (
+                    f"Nenhum registro encontrado para produto "
+                    f"{codigo_produto} na unidade {unidade_filtro}"
+                )
+            }
+
+        # Extrair colunas de meses
+        mes_cols = sorted(
+            [c for c in df_produto.columns if c.startswith('mes_')]
+        )
+
+        if not mes_cols:
+            return {
+                "status": "error",
+                "message": (
+                    "Colunas de meses não encontradas na "
+                    "estrutura de dados"
+                )
+            }
+
+        # Preparar dados para gráfico
+        mes_labels = []
+        mes_numeros = []
+        
+        for col in mes_cols:
+            mes_num = col.replace('mes_', '')
+            if mes_num == 'parcial':
+                mes_labels.append('Parcial')
+            else:
+                mes_labels.append(f'Mês {mes_num}')
+            mes_numeros.append(mes_num)
+
+        # Agregar vendas por mês (caso tenha múltiplas unidades)
+        vendas_mensais = []
+        for col in mes_cols:
+            valores = pd.to_numeric(
+                df_produto[col],
+                errors='coerce'
+            ).fillna(0)
+            vendas_mensais.append(valores.sum())
+
+        # Criar gráfico
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(
+            x=mes_labels,
+            y=vendas_mensais,
+            mode='lines+markers',
+            name='Vendas',
+            line=dict(
+                color='#2563EB',
+                width=3
+            ),
+            marker=dict(
+                size=10,
+                color='#2563EB',
+                line=dict(width=2, color='white'),
+                symbol='circle'
+            ),
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Quantidade: %{y:,.0f} unidades<extra></extra>"
+            ),
+            fill='tozeroy',
+            fillcolor='rgba(37, 99, 235, 0.2)'
+        ))
+
+        # Adicionar linha de média
+        media_vendas = sum(vendas_mensais) / len(vendas_mensais)
+        fig.add_hline(
+            y=media_vendas,
+            line_dash="dash",
+            line_color="red",
+            annotation_text="Média",
+            annotation_position="right"
+        )
+
+        fig = _apply_chart_customization(
+            fig,
+            title=(
+                f"Vendas Mensais - Produto {codigo_produto}"
+            )
+        )
+
+        fig.update_xaxes(title_text="Mês")
+        fig.update_yaxes(title_text="Quantidade (unidades)")
+        fig.update_layout(height=600, hovermode='x unified')
+
+        # Calcular estatísticas
+        total_vendas = sum(vendas_mensais)
+        venda_media = total_vendas / len(vendas_mensais)
+        venda_max = max(vendas_mensais)
+        venda_min = min(vendas_mensais)
+        venda_max_mes = mes_labels[vendas_mensais.index(venda_max)]
+        venda_min_mes = mes_labels[vendas_mensais.index(venda_min)]
+
+        # Extrair informações adicionais do produto
+        produto_info = {}
+        for col in ['nome_produto', 'nome_categoria', 'une_nome']:
+            if col in df_produto.columns:
+                valor = df_produto[col].iloc[0]
+                produto_info[col] = str(valor)
+
+        return {
+            "status": "success",
+            "chart_type": "line_temporal_mensal",
+            "chart_data": _export_chart_to_json(fig),
+            "summary": {
+                "codigo_produto": codigo_produto,
+                "total_vendas": int(total_vendas),
+                "venda_media": float(venda_media),
+                "venda_maxima": int(venda_max),
+                "venda_minima": int(venda_min),
+                "mes_maior_venda": venda_max_mes,
+                "mes_menor_venda": venda_min_mes,
+                "variacao": float(
+                    (venda_max - venda_min) / venda_media * 100
+                    if venda_media > 0 else 0
+                ),
+                "meses_analisados": len(mes_cols),
+                "produto_info": produto_info,
+                "dados_mensais": {
+                    mes_labels[i]: int(vendas_mensais[i])
+                    for i in range(len(mes_labels))
+                }
+            }
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Erro ao gerar gráfico de vendas mensais: {e}",
+            exc_info=True
+        )
+        return {
+            "status": "error",
+            "message": f"Erro ao gerar gráfico: {str(e)}"
+        }
 
 
 # Lista de todas as ferramentas de gráficos disponíveis
@@ -1037,5 +1271,6 @@ chart_tools = [
     gerar_grafico_pizza_categorias,
     gerar_dashboard_analise_completa,
     gerar_grafico_vendas_por_produto,
+    gerar_grafico_vendas_mensais_produto,
     gerar_grafico_automatico,
 ]
