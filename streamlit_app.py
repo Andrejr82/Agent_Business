@@ -2,14 +2,17 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import logging
+import uuid
 
 from core import auth
 from core.query_processor import QueryProcessor
+from core.session_state import SESSION_STATE_KEYS
+from core.config.logging_config import setup_logging
+from core.utils.context import correlation_id_var
 
 audit_logger = logging.getLogger("audit")
 
 # --- Constantes ---
-from core.session_state import SESSION_STATE_KEYS
 ROLES = {"ASSISTANT": "assistant", "USER": "user"}
 PAGE_CONFIG = {
     "page_title": "Assistente de BI - Caçula",
@@ -68,8 +71,25 @@ def show_bi_assistant():
             output = message.get("output")
             if isinstance(output, pd.DataFrame):
                 st.dataframe(output, use_container_width=True)
-            elif isinstance(output, dict):  # Para gráficos Plotly
-                st.plotly_chart(output, use_container_width=True)
+            elif hasattr(output, 'to_json'):
+                # É uma figura Plotly
+                try:
+                    st.plotly_chart(output, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Erro ao renderizar gráfico: {e}")
+                    st.write(output)
+            elif isinstance(output, dict):
+                # Verifica se é dicionário com figura Plotly
+                if 'data' in output and 'layout' in output:
+                    try:
+                        import plotly.graph_objects as go
+                        fig = go.Figure(output)
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Erro ao renderizar gráfico: {e}")
+                        st.json(output)
+                else:
+                    st.json(output)
             else:
                 st.markdown(str(output or ""))
 
@@ -138,29 +158,18 @@ def show_admin_dashboard():
     st.write("- Visualização de logs")
     st.write("- Configurações do sistema")
     st.markdown(
-        f"<div class='footer'>Desenvolvido para Análise de Dados Caçula © {datetime.now().year}</div>",
+        f"<div class='footer'>Desenvolvido para Análise de Dados "
+        f"Caçula © {datetime.now().year}</div>",
         unsafe_allow_html=True,
     )
 
 
-import logging
-import uuid
-# import sentry_sdk
-import os
-from core.config.logging_config import setup_logging
-from core.utils.context import correlation_id_var
-
 logger = logging.getLogger(__name__)
+
 
 def main():
     """Função principal que controla o fluxo da aplicação."""
     setup_logging()
-    # sentry_dsn = os.getenv("SENTRY_DSN")
-    # if sentry_dsn:
-    #     sentry_sdk.init(
-    #         dsn=sentry_dsn,
-    #         traces_sample_rate=1.0,
-    #     )
 
     # Set correlation id
     if 'correlation_id' not in st.session_state:
@@ -177,22 +186,19 @@ def main():
 
     if auth.sessao_expirada():
         st.warning(
-            "Sua sessão expirou por inatividade. Faça login novamente para continuar."
+            "Sua sessão expirou por inatividade. Faça login novamente "
+            "para continuar."
         )
         handle_logout()
-        # A tela de login será exibida no próximo rerun após o st.stop()
         st.stop()
-
 
     # --- Barra Lateral e Logout ---
     username = st.session_state.get(SESSION_STATE_KEYS["USERNAME"])
-    role = st.session_state.get(SESSION_STATE_KEYS["ROLE"])
-
-    
 
     if username:
         st.sidebar.markdown(
-            f"<span style='color:#2563EB;'>Bem-vindo, <b>{username}</b>!</span>",
+            f"<span style='color:#2563EB;'>Bem-vindo, "
+            f"<b>{username}</b>!</span>",
             unsafe_allow_html=True,
         )
         st.sidebar.markdown("<hr>", unsafe_allow_html=True)

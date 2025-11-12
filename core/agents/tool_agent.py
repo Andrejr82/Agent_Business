@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from core.llm_base import BaseLLMAdapter
 from core.llm_adapter import OpenAILLMAdapter
 from core.llm_langchain_adapter import CustomLangChainLLM
+from core.utils.response_parser import parse_agent_response
 
 from core.tools.unified_data_tools import unified_tools
 from core.tools.date_time_tools import date_time_tools
@@ -53,9 +54,15 @@ class ToolAgent:
             verbose=True,
         )
 
-    def process_query(self, query: str, chat_history: List[BaseMessage] = None) -> Dict[str, Any]:
+    def process_query(
+        self,
+        query: str,
+        chat_history: List[BaseMessage] = None
+    ) -> Dict[str, Any]:
         """Processa a query do usuário usando o agente LangChain."""
-        self.logger.info(f"Processando query com o Agente OpenAI Tools: {query}")
+        self.logger.info(
+            f"Processando query com o Agente OpenAI Tools: {query}"
+        )
         try:
             # Ensure chat_history is not None for invoke
             if chat_history is None:
@@ -63,17 +70,49 @@ class ToolAgent:
 
             config = RunnableConfig(recursion_limit=10)
 
-            self.logger.debug(f"Invocando agente com query: {query} e chat_history: {chat_history}")
+            self.logger.debug(
+                f"Invocando agente com query: {query} "
+                f"e chat_history: {chat_history}"
+            )
             response = self.agent_executor.invoke(
-                {"input": query, "chat_history": chat_history}, # Pass chat_history
+                {
+                    "input": query,
+                    "chat_history": chat_history
+                },
                 config=config
             )
-            self.logger.debug(f"Resposta bruta do agente: {response}")
-            return {"type": "text", "output": response.get("output", "Não foi possível gerar uma resposta.")}
-        except Exception as e:
-            self.logger.error(f"Erro ao invocar o agente LangChain: {e}", exc_info=True)
+            self.logger.debug(
+                f"Resposta bruta do agente: {response}"
+            )
+
+            # Parse resposta para detectar gráficos
+            raw_output = response.get("output", "")
+            response_type, processed = parse_agent_response(raw_output)
+
+            self.logger.info(
+                f"Resposta processada como tipo: {response_type}"
+            )
+
             return {
-                "type": "error", "output": "Desculpe, não consegui processar sua solicitação no momento. Por favor, tente novamente ou reformule sua pergunta."
+                "type": response_type,
+                "output": processed.get(
+                    "output",
+                    "Não foi possível gerar uma resposta."
+                )
+            }
+
+        except Exception as e:
+            self.logger.error(
+                f"Erro ao invocar o agente LangChain: {e}",
+                exc_info=True
+            )
+            return {
+                "type": "error",
+                "output": (
+                    "Desculpe, não consegui processar sua solicitação "
+                    "no momento. Por favor, tente novamente ou reformule "
+                    "sua pergunta."
+                )
             }
 
 
