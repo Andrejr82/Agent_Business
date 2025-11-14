@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from langchain_core.tools import tool
 from core.data_source_manager import get_data_manager
+from core.visualization.advanced_charts import AdvancedChartGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -86,78 +87,47 @@ def gerar_grafico_vendas_por_categoria(
     
     try:
         manager = get_data_manager()
-        
-        # Tentar obter dados de qualquer tabela
-        df = None
-        tabelas = ['admmatao', 'ADMAT', 'ADMAT_REBUILT', 'master_catalog']
-        
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty and 'categoria' in df.columns:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
-        
-        if df is None or df.empty:
+        df = manager.get_data('Admat_OPCOM', limit=5000)
+
+        if df is None or df.empty or 'categoria' not in df.columns:
             return {
                 "status": "error",
-                "message": "Não foi possível carregar dados para gerar gráfico"
+                "message": "Não foi possível carregar dados de categoria."
             }
-        
-        # Normalizar nome da coluna categoria
-        categoria_col = None
-        for col in df.columns:
-            if 'categ' in col.lower():
-                categoria_col = col
-                break
-        
-        if not categoria_col:
-            return {
-                "status": "error",
-                "message": "Coluna de categoria não encontrada"
-            }
-        
-        # Contar por categoria
-        vendas_por_categoria = df[categoria_col].value_counts().head(limite)
+
+        # Preparar dados
+        vendas_por_categoria = df['categoria'].value_counts().reset_index()
+        vendas_por_categoria.columns = ['categoria', 'total']
         
         if ordenar_por == "ascendente":
-            vendas_por_categoria = vendas_por_categoria.sort_values()
+            vendas_por_categoria = vendas_por_categoria.sort_values('total', ascending=True)
+        else:
+            vendas_por_categoria = vendas_por_categoria.sort_values('total', ascending=False)
         
-        # Criar gráfico
-        fig = go.Figure(data=[
-            go.Bar(
-                y=vendas_por_categoria.index,
-                x=vendas_por_categoria.values,
-                orientation='h',
-                marker=dict(
-                    color=vendas_por_categoria.values,
-                    colorscale='Viridis',
-                    showscale=True,
-                    colorbar=dict(title="Quantidade")
-                ),
-                hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>"
-            )
-        ])
-        
-        fig = _apply_chart_customization(
-            fig,
-            title=f"Vendas por Categoria (Top {limite})"
+        df_chart = vendas_por_categoria.head(limite)
+
+        # Usar o novo gerador de gráficos
+        chart_generator = AdvancedChartGenerator()
+        fig = chart_generator.create_segmentation_chart(
+            df=df_chart,
+            segment_column='categoria',
+            value_column='total',
+            chart_type='donut'
         )
         
-        fig.update_xaxes(title_text="Quantidade de Produtos")
-        fig.update_yaxes(title_text="Categoria")
-        
+        # Customizações adicionais se necessário
+        fig.update_layout(
+            title_text=f"Top {limite} Categorias por Volume de Vendas"
+        )
+
         return {
             "status": "success",
-            "chart_type": "bar_horizontal",
+            "chart_type": "donut",
             "chart_data": _export_chart_to_json(fig),
             "summary": {
-                "total_categorias": len(vendas_por_categoria),
-                "categorias": vendas_por_categoria.to_dict(),
-                "total_itens": int(vendas_por_categoria.sum())
+                "total_categorias": len(df_chart),
+                "categorias": df_chart.set_index('categoria')['total'].to_dict(),
+                "total_itens": int(df_chart['total'].sum())
             }
         }
     except Exception as e:
@@ -1063,50 +1033,41 @@ def gerar_grafico_vendas_mensais_produto(
     try:
         manager = get_data_manager()
 
-        # Tentar carregar dados
-        df = None
+        # Identificar a coluna de código primeiro (de forma agnóstica)
+        # Esta é uma suposição que precisa ser validada.
+        # O ideal seria ter um mapeamento de metadados.
+        codigo_col = 'codigo_produto' 
+
+        # Tentar carregar dados já filtrados
+        df_produto = None
         for tabela in ['ADMAT_REBUILT', 'admmatao', 'ADMAT', 'master_catalog']:
             try:
-                df = manager.get_data(tabela, limit=50000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
+                # Usar o novo método para buscar dados já filtrados
+                df_produto = manager.get_filtered_data(
+                    tabela,
+                    filters={codigo_col: codigo_produto}
+                )
+                if not df_produto.empty:
+                    logger.info(f"Dados filtrados carregados de {tabela} para o produto {codigo_produto}")
                     break
             except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
+                logger.debug(f"Erro ao tentar carregar dados filtrados de {tabela}: {e}")
                 continue
 
-        if df is None or df.empty:
-            return {
-                "status": "error",
-                "message": "Não foi possível carregar dados"
-            }
-
-        # Normalizar nomes de colunas
-        df.columns = df.columns.str.lower()
-
-        # Procurar coluna de código
-        codigo_col = next(
-            (c for c in df.columns if 'codigo' in c or 'code' in c),
-            None
-        )
-
-        if not codigo_col:
-            return {
-                "status": "error",
-                "message": "Coluna de código de produto não encontrada"
-            }
-
-        # Filtrar por código do produto
-        df_produto = df[df[codigo_col] == codigo_produto].copy()
-
-        if df_produto.empty:
+        if df_produto is None or df_produto.empty:
             return {
                 "status": "error",
                 "message": (
-                    f"Produto {codigo_produto} não encontrado. "
+                    f"Produto {codigo_produto} não encontrado em nenhuma fonte de dados. "
                     "Verifique o código informado."
                 )
             }
+
+        # Normalizar nomes de colunas
+        df_produto.columns = df_produto.columns.str.lower()
+        
+        # A coluna de código já foi usada no filtro, então podemos prosseguir
+        # com a lógica de negócio.
 
         # Se houver filtro de unidade, aplicar
         if unidade_filtro:

@@ -53,6 +53,16 @@ class DataSource(ABC):
         """Busca registros."""
         pass
 
+    @abstractmethod
+    def get_filtered_data(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        limit: int = None
+    ) -> pd.DataFrame:
+        """Busca registros com filtros exatos."""
+        pass
+
 
 class SQLServerDataSource(DataSource):
     """Acesso a dados SQL Server."""
@@ -136,6 +146,29 @@ class SQLServerDataSource(DataSource):
             return pd.DataFrame(results) if results else pd.DataFrame()
         except Exception as e:
             logger.error(f"Erro ao buscar em {table_name}: {e}")
+            return pd.DataFrame()
+
+    def get_filtered_data(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        limit: int = None
+    ) -> pd.DataFrame:
+        """Busca registros com filtros exatos no SQL Server."""
+        if not self._connected:
+            return pd.DataFrame()
+        
+        try:
+            limit_clause = f"TOP {limit}" if limit else ""
+            where_clauses = [f"[{col}] = :{col}" for col in filters.keys()]
+            where_str = " AND ".join(where_clauses)
+            
+            query = f"SELECT {limit_clause} * FROM dbo.{table_name} WHERE {where_str}"
+            
+            results = self.query(query, filters)
+            return pd.DataFrame(results) if results else pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Erro ao filtrar dados em {table_name}: {e}")
             return pd.DataFrame()
 
 
@@ -228,6 +261,33 @@ class ParquetDataSource(DataSource):
             logger.error(f"Erro ao buscar em Parquet: {e}")
             return pd.DataFrame()
 
+    def get_filtered_data(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        limit: int = None
+    ) -> pd.DataFrame:
+        """Busca registros com filtros exatos em Parquet."""
+        try:
+            df = self.get_table(table_name)
+            if df.empty:
+                return pd.DataFrame()
+
+            for col, value in filters.items():
+                if col in df.columns:
+                    df = df[df[col] == value]
+                else:
+                    logger.warning(f"Coluna de filtro '{col}' não encontrada na tabela '{table_name}'.")
+                    return pd.DataFrame()
+            
+            if limit:
+                df = df.head(limit)
+            
+            return df
+        except Exception as e:
+            logger.error(f"Erro ao filtrar dados em Parquet {table_name}: {e}")
+            return pd.DataFrame()
+
 
 class JSONDataSource(DataSource):
     """Acesso a dados em arquivos JSON."""
@@ -304,6 +364,33 @@ class JSONDataSource(DataSource):
             
         except Exception as e:
             logger.error(f"Erro ao buscar em JSON: {e}")
+            return pd.DataFrame()
+
+    def get_filtered_data(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        limit: int = None
+    ) -> pd.DataFrame:
+        """Busca registros com filtros exatos em JSON."""
+        try:
+            df = self.get_table(table_name)
+            if df.empty:
+                return pd.DataFrame()
+
+            for col, value in filters.items():
+                if col in df.columns:
+                    df = df[df[col] == value]
+                else:
+                    logger.warning(f"Coluna de filtro '{col}' não encontrada na tabela '{table_name}'.")
+                    return pd.DataFrame()
+            
+            if limit:
+                df = df.head(limit)
+            
+            return df
+        except Exception as e:
+            logger.error(f"Erro ao filtrar dados em JSON {table_name}: {e}")
             return pd.DataFrame()
 
 
@@ -422,6 +509,45 @@ class DataSourceManager:
         )
         return pd.DataFrame()
     
+    def get_filtered_data(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        limit: int = None,
+        source: str = None
+    ) -> pd.DataFrame:
+        """
+        Busca dados filtrados em uma tabela.
+        
+        Args:
+            table_name: Nome da tabela
+            filters: Dicionário de filtros
+            limit: Limite de resultados
+            source: Fonte específica (opcional)
+        
+        Returns:
+            DataFrame com resultados
+        """
+        # Se fonte específica foi pedida
+        if source and source in self.sources:
+            return self.sources[source].get_filtered_data(
+                table_name,
+                filters,
+                limit
+            )
+        
+        # Tentar na ordem de prioridade
+        for src in self.sources.values():
+            if src.is_connected():
+                df = src.get_filtered_data(table_name, filters, limit)
+                if not df.empty:
+                    return df
+        
+        logger.warning(
+            f"Nenhum resultado para filtros: {filters} em {table_name}"
+        )
+        return pd.DataFrame()
+
     def execute_query(
         self,
         query: str,
@@ -437,32 +563,26 @@ class DataSourceManager:
         Returns:
             Lista de resultados
         """
-        if 'sql_server' in self.sources:
-            source = self.sources['sql_server']
-            if source.is_connected():
-                return source.query(query, params)
+        sql_source = self.sources.get('sql_server')
+        if sql_source and sql_source.is_connected():
+            return sql_source.query(query, params)
         
-        logger.error("SQL Server não disponível para queries")
+        logger.warning("SQL Server não disponível para query.")
         return []
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Retorna status de todas as fontes."""
-        return {
-            name: {
-                "connected": source.is_connected(),
-                "type": source.__class__.__name__
-            }
-            for name, source in self.sources.items()
-        }
 
 
-# Instância global
-_manager: Optional[DataSourceManager] = None
+# Instância global singleton
+_data_manager_instance: Optional[DataSourceManager] = None
 
 
 def get_data_manager() -> DataSourceManager:
-    """Retorna a instância global do gerenciador de dados."""
-    global _manager
-    if _manager is None:
-        _manager = DataSourceManager()
-    return _manager
+    """
+    Retorna a instância singleton do DataSourceManager.
+
+    Returns:
+        DataSourceManager: Instância gerenciadora de fontes de dados
+    """
+    global _data_manager_instance
+    if _data_manager_instance is None:
+        _data_manager_instance = DataSourceManager()
+    return _data_manager_instance

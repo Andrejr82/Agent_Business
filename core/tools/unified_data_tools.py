@@ -1,22 +1,24 @@
 """
 Ferramentas unificadas para acessar dados de qualquer fonte.
 Versão corrigida com nomes reais das tabelas e colunas.
-
-Tabelas disponíveis:
-- SQL Server: admmatao
-- Parquet: ADMAT, ADMAT_REBUILT, master_catalog
-
-Colunas principais (todas em minúsculas no Parquet):
-- codigo, nome, categoria, preco_38_percent, est_une, etc.
 """
 
 import logging
 from typing import Dict, Any
+import pandas as pd
 from langchain_core.tools import tool
 from core.data_source_manager import get_data_manager
 
 logger = logging.getLogger(__name__)
 
+def _truncate_df_for_llm(df: pd.DataFrame, max_rows: int = 10) -> Dict[str, Any]:
+    """Trunca o DataFrame e prepara a resposta para o LLM."""
+    if len(df) > max_rows:
+        return {
+            "data": df.head(max_rows).to_dict(orient='records'),
+            "message": f"Mostrando as primeiras {max_rows} de {len(df)} linhas. Seja mais específico se precisar de mais detalhes."
+        }
+    return {"data": df.to_dict(orient='records')}
 
 @tool
 def listar_dados_disponiveis() -> Dict[str, Any]:
@@ -69,23 +71,20 @@ def get_produtos(limit: int = 100) -> Dict[str, Any]:
     try:
         manager = get_data_manager()
         
-        # Tentar em ordem de prioridade
-        tabelas = [
-            'admmatao', 'ADMAT', 'master_catalog', 'ADMAT_REBUILT',
-            'produtos'
-        ]
+        tabelas = ['Admat_OPCOM']
         
         for tabela in tabelas:
             try:
                 df = manager.get_data(tabela, limit=limit)
                 if not df.empty:
                     logger.info(f"Encontrados {len(df)} produtos em {tabela}")
+                    response_data = _truncate_df_for_llm(df)
                     return {
                         "status": "success",
                         "source": tabela,
                         "count": len(df),
                         "columns": list(df.columns),
-                        "data": df.to_dict(orient='records')
+                        **response_data
                     }
             except Exception as e:
                 logger.debug(f"Erro ao tentar {tabela}: {e}")
@@ -139,11 +138,7 @@ def buscar_produto(
                 "message": "Informe código ou nome do produto"
             }
         
-        # Tentar em cada tabela
-        tabelas = [
-            'ADMAT', 'admmatao', 'master_catalog', 'ADMAT_REBUILT',
-            'produtos'
-        ]
+        tabelas = ['Admat_OPCOM']
         
         for tabela in tabelas:
             try:
@@ -152,6 +147,7 @@ def buscar_produto(
                     logger.info(
                         f"Encontrados {len(df)} resultado(s) em {tabela}"
                     )
+                    response_data = _truncate_df_for_llm(df)
                     return {
                         "status": "success",
                         "source": tabela,
@@ -159,7 +155,7 @@ def buscar_produto(
                         "search_value": value,
                         "count": len(df),
                         "columns": list(df.columns),
-                        "data": df.to_dict(orient='records')
+                        **response_data
                     }
             except Exception as e:
                 logger.debug(f"Erro ao buscar em {tabela}: {e}")
@@ -199,12 +195,8 @@ def buscar_por_categoria(
     try:
         manager = get_data_manager()
         
-        # Tabelas e colunas possíveis para categoria
         tabelas_e_colunas = [
-            ('ADMAT', 'categoria'),
-            ('ADMAT_REBUILT', 'nome_categoria'),
-            ('master_catalog', 'nome_categoria'),
-            ('admmatao', 'categoria'),
+            ('Admat_OPCOM', 'categoria'),
         ]
         
         for tabela, coluna in tabelas_e_colunas:
@@ -217,6 +209,7 @@ def buscar_por_categoria(
                         f"Encontrados {len(df)} produtos "
                         f"na categoria '{categoria}' em {tabela}"
                     )
+                    response_data = _truncate_df_for_llm(df)
                     return {
                         "status": "success",
                         "source": tabela,
@@ -224,7 +217,7 @@ def buscar_por_categoria(
                         "category": categoria,
                         "count": len(df),
                         "columns": list(df.columns),
-                        "data": df.to_dict(orient='records')
+                        **response_data
                     }
             except Exception as e:
                 logger.debug(
@@ -269,7 +262,6 @@ def obter_estoque(
     try:
         manager = get_data_manager()
         
-        # Determinar coluna e valor de busca
         if codigo_produto:
             search_column = 'codigo'
             search_value = codigo_produto
@@ -284,8 +276,7 @@ def obter_estoque(
                 "message": "Informe código ou nome do produto"
             }
         
-        # Tabelas onde procurar
-        tabelas = ['ADMAT', 'admmatao', 'master_catalog', 'ADMAT_REBUILT']
+        tabelas = ['Admat_OPCOM']
         
         for tabela in tabelas:
             try:
@@ -295,16 +286,9 @@ def obter_estoque(
                 if not df.empty:
                     logger.info(f"Produto encontrado em {tabela}")
                     
-                    # Procurar coluna de estoque possível
                     estoque_columns = [
-                        'est_une',
-                        'estoque',
-                        'EST# UNE',
-                        'ESTOQUE',
-                        'stock',
-                        'STOCK',
-                        'quantidade',
-                        'QUANTIDADE'
+                        'est_une', 'estoque', 'EST# UNE', 'ESTOQUE',
+                        'stock', 'STOCK', 'quantidade', 'QUANTIDADE'
                     ]
                     
                     estoque_col = None
@@ -320,6 +304,7 @@ def obter_estoque(
                             )
                             break
                     
+                    produto_info = _truncate_df_for_llm(df, max_rows=1)
                     if estoque_col:
                         return {
                             "status": "success",
@@ -327,7 +312,7 @@ def obter_estoque(
                             "search_by": search_column,
                             "estoque_column": estoque_col,
                             "estoque_value": estoque_valor,
-                            "produto": df.iloc[0].to_dict()
+                            "produto": produto_info.get("data", [{}])[0]
                         }
                     else:
                         logger.warning(
@@ -342,7 +327,7 @@ def obter_estoque(
                                 "informação de estoque"
                             ),
                             "columns_available": list(df.columns),
-                            "produto": df.iloc[0].to_dict()
+                            "produto": produto_info.get("data", [{}])[0]
                         }
             except Exception as e:
                 logger.debug(f"Erro ao buscar em {tabela}: {e}")
@@ -407,6 +392,7 @@ def consultar_dados(
         
         logger.info(f"Consulta retornou {len(df)} registros")
         
+        response_data = _truncate_df_for_llm(df)
         return {
             "status": "success",
             "tabela": tabela,
@@ -417,7 +403,7 @@ def consultar_dados(
             ),
             "total_registros": len(df),
             "colunas": list(df.columns),
-            "data": df.to_dict(orient='records')
+            **response_data
         }
         
     except Exception as e:

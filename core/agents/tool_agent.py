@@ -91,6 +91,9 @@ class ToolAgent:
                 f"Resposta bruta do agente: {response}"
             )
 
+            # Adicionando log detalhado para depuração
+            self.logger.info(f"CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {response}")
+
             # Parse resposta para detectar gráficos
             raw_output = response.get("output", "")
             response_type, processed = parse_agent_response(raw_output)
@@ -98,6 +101,13 @@ class ToolAgent:
             self.logger.info(
                 f"Resposta processada como tipo: {response_type}"
             )
+
+            # Se for gráfico, retorna a figura Plotly diretamente
+            if response_type == "chart":
+                return {
+                    "type": "chart",
+                    "output": processed.get("output", "Erro ao gerar gráfico")
+                }
 
             return {
                 "type": response_type,
