@@ -135,30 +135,39 @@ class TestStreamlitRendering(unittest.TestCase):
 
 class TestResponseParserIntegration(unittest.TestCase):
     """Testes de integração do response parser."""
-    
+
+    def setUp(self):
+        """Configurar antes de cada teste."""
+        # Criar figura Plotly de teste
+        self.fig = go.Figure()
+        self.fig.add_trace(go.Scatter(
+            x=['A', 'B', 'C'],
+            y=[1, 2, 3],
+            mode='lines+markers'
+        ))
+
     def test_parse_chart_response_full_flow(self):
-        """Testar fluxo completo de gráfico."""
-        from core.tools.chart_tools import gerar_grafico_vendas_mensais_produto
+        """Testar fluxo completo de gráfico - usa dados simulados."""
         from core.utils.response_parser import parse_agent_response
-        
-        # Executar ferramenta
-        result = gerar_grafico_vendas_mensais_produto.invoke({
-            "codigo_produto": 59294,
-            "unidade_filtro": ""
-        })
-        
-        # Verificar resultado
-        self.assertEqual(result['status'], 'success')
-        self.assertEqual(result['chart_type'], 'line_temporal_mensal')
-        self.assertIn('chart_data', result)
-        self.assertIn('summary', result)
-        
+
+        # Simular resposta de ferramenta (sem depender de dados reais)
+        simulated_result = {
+            "status": "success",
+            "chart_type": "line_temporal_mensal",
+            "chart_data": self.fig.to_json(),
+            "summary": {
+                "codigo_produto": 59294,
+                "total_vendas": 16385,
+                "venda_media": 1260.38
+            }
+        }
+
         # Converter para JSON string (como agente faria)
-        response_str = json.dumps(result)
-        
+        response_str = json.dumps(simulated_result)
+
         # Parse
         response_type, processed = parse_agent_response(response_str)
-        
+
         # Verificar
         self.assertEqual(response_type, 'chart')
         self.assertIsInstance(processed['output'], go.Figure)
