@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 def parse_agent_response(response: str) -> Tuple[str, Dict[str, Any]]:
     """
     Parseia a resposta do agente e extrai dados estruturados.
-    
+
     Args:
         response: String da resposta do agente
-        
+
     Returns:
         Tupla (tipo, dados_processados)
         Tipos: "chart", "text", "error"
@@ -28,10 +28,18 @@ def parse_agent_response(response: str) -> Tuple[str, Dict[str, Any]]:
     response_lower = response.lower()
 
     # Detectar se contém informações de gráfico
-    if any(keyword in response_lower for keyword in [
-        "gráfico", "grafico", "chart", "plotly",
-        "chart_data", "chart_type", "visualiza"
-    ]):
+    if any(
+        keyword in response_lower
+        for keyword in [
+            "gráfico",
+            "grafico",
+            "chart",
+            "plotly",
+            "chart_data",
+            "chart_type",
+            "visualiza",
+        ]
+    ):
         logger.debug("Detectada resposta tipo gráfico")
         return _extract_chart_from_response(response)
 
@@ -43,10 +51,10 @@ def parse_agent_response(response: str) -> Tuple[str, Dict[str, Any]]:
 def _extract_chart_from_response(response: str) -> Tuple[str, Dict[str, Any]]:
     """
     Extrai dados de gráfico de uma resposta de ferramenta.
-    
+
     Args:
         response: String contendo dados do gráfico
-        
+
     Returns:
         Tupla (tipo, figura_plotly ou erro)
     """
@@ -57,6 +65,7 @@ def _extract_chart_from_response(response: str) -> Tuple[str, Dict[str, Any]]:
         else:
             # Se não for JSON puro, tomar o primeiro JSON encontrado
             import re
+
             json_match = re.search(r"\{.*\}", response, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
@@ -83,7 +92,7 @@ def _extract_chart_from_response(response: str) -> Tuple[str, Dict[str, Any]]:
                     return "chart", {
                         "output": fig,
                         "summary": data.get("summary", {}),
-                        "chart_type": data.get("chart_type", "unknown")
+                        "chart_type": data.get("chart_type", "unknown"),
                     }
 
                 except Exception as e:
@@ -114,15 +123,16 @@ def _extract_chart_from_response(response: str) -> Tuple[str, Dict[str, Any]]:
 def detect_dataframe_response(response: Any) -> bool:
     """
     Detecta se a resposta é um DataFrame.
-    
+
     Args:
         response: Resposta a verificar
-        
+
     Returns:
         True se for DataFrame, False caso contrário
     """
     try:
         import pandas as pd
+
         return isinstance(response, pd.DataFrame)
     except Exception:
         return False

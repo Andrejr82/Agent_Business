@@ -72,7 +72,7 @@ class QueryHistory:
             with open(self.history_file, "w", encoding="utf-8") as f:
                 json.dump(history, f, ensure_ascii=False, indent=2)
 
-            logging.info(f"Consulta adicionada ao histórico")
+            logging.info("Consulta adicionada ao histórico")
 
             return True
 

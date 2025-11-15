@@ -1,10 +1,9 @@
 import logging
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.utils.function_calling import convert_to_openai_tool
-from langchain_openai import ChatOpenAI
 
-from ..config import LLM_MODEL_NAME, OPENAI_API_KEY
+from ..llm_factory import LLMFactory # Added
+from ..llm_langchain_adapter import CustomLangChainLLM # Added
 from ..tools.sql_server_tools import db_schema_info, sql_server_tools
 
 # Configuração de logging
@@ -22,15 +21,15 @@ class GraphAgent:
         Inicializa o agente.
 
         Args:
-            llm (ChatOpenAI, optional): O modelo de linguagem a ser usado.
+            llm (BaseChatModel, optional): O modelo de linguagem a ser usado.
             tools (list, optional): A lista de ferramentas disponíveis.
         """
-        self.llm = llm or ChatOpenAI(
-            model=LLM_MODEL_NAME,
-            temperature=0,
-            api_key=OPENAI_API_KEY,
-            streaming=True,
-        )
+        if llm is None:
+            llm_adapter = LLMFactory.get_adapter()
+            self.llm = CustomLangChainLLM(llm_adapter=llm_adapter)
+        else:
+            self.llm = llm
+
         self.tools = tools or sql_server_tools
         self.agent_runnable = self._create_agent_runnable()
 
@@ -61,8 +60,8 @@ class GraphAgent:
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )
-        openai_tools = [convert_to_openai_tool(t) for t in self.tools]
-        return prompt | self.llm.bind_tools(openai_tools)
+        # openai_tools = [convert_to_openai_tool(t) for t in self.tools] # Removed
+        return prompt | self.llm.bind_tools(self.tools) # Changed to use self.tools directly
 
     def process(self, messages):
         """

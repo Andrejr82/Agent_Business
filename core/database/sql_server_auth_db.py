@@ -11,10 +11,6 @@ SESSAO_MINUTOS = 30
 
 # --- Inicialização do banco (Cria a tabela se não existir) ---
 from sqlalchemy import text
-import pyodbc
-import bcrypt
-from datetime import datetime, timedelta
-from core.utils.db_connection import get_db_connection
 
 # --- Constantes de Autenticação ---
 MAX_TENTATIVAS = 5
@@ -54,7 +50,9 @@ def criar_usuario(username, password, role="user"):
     try:
         with get_db_connection() as conn:
             conn.execute(
-                text("INSERT INTO usuarios (username, password_hash, role) VALUES (:username, :password_hash, :role)"),
+                text(
+                    "INSERT INTO usuarios (username, password_hash, role) VALUES (:username, :password_hash, :role)"
+                ),
                 {"username": username, "password_hash": password_hash, "role": role},
             )
             conn.commit()
@@ -62,21 +60,19 @@ def criar_usuario(username, password, role="user"):
         raise ValueError("Usuário já existe")
 
 
-
-
-
-
 # --- Autenticação ---
 def autenticar_usuario(username, password):
     with get_db_connection() as conn:
         result = conn.execute(
-            text("SELECT id, password_hash, ativo, tentativas_invalidas, bloqueado_ate, role FROM usuarios WHERE username=:username"),
-            {"username": username}
+            text(
+                "SELECT id, password_hash, ativo, tentativas_invalidas, bloqueado_ate, role FROM usuarios WHERE username=:username"
+            ),
+            {"username": username},
         ).fetchone()
 
         if not result:
             return None, "Usuário não encontrado"
-        
+
         user_id, password_hash, ativo, tentativas, bloqueado_ate, role = result
         now = datetime.now()
 
@@ -85,34 +81,47 @@ def autenticar_usuario(username, password):
 
         if bloqueado_ate:
             if now < bloqueado_ate:
-                return None, f"Usuário bloqueado até {bloqueado_ate.strftime('%Y-%m-%d %H:%M:%S')}"
+                return (
+                    None,
+                    f"Usuário bloqueado até {bloqueado_ate.strftime('%Y-%m-%d %H:%M:%S')}",
+                )
 
         if not bcrypt.checkpw(password.encode(), password_hash.encode()):
             tentativas += 1
             if tentativas >= MAX_TENTATIVAS:
                 bloqueado_ate = now + timedelta(minutes=BLOQUEIO_MINUTOS)
                 conn.execute(
-                    text("UPDATE usuarios SET tentativas_invalidas=:tentativas, bloqueado_ate=:bloqueado_ate WHERE id=:id"),
-                    {"tentativas": tentativas, "bloqueado_ate": bloqueado_ate, "id": user_id}
+                    text(
+                        "UPDATE usuarios SET tentativas_invalidas=:tentativas, bloqueado_ate=:bloqueado_ate WHERE id=:id"
+                    ),
+                    {
+                        "tentativas": tentativas,
+                        "bloqueado_ate": bloqueado_ate,
+                        "id": user_id,
+                    },
                 )
-                conn.commit() # Explicit commit for this update
+                conn.commit()  # Explicit commit for this update
                 return None, f"Usuário bloqueado por {BLOQUEIO_MINUTOS} minutos"
             else:
                 conn.execute(
-                    text("UPDATE usuarios SET tentativas_invalidas=:tentativas WHERE id=:id"),
-                    {"tentativas": tentativas, "id": user_id}
+                    text(
+                        "UPDATE usuarios SET tentativas_invalidas=:tentativas WHERE id=:id"
+                    ),
+                    {"tentativas": tentativas, "id": user_id},
                 )
-                conn.commit() # Explicit commit for this update
+                conn.commit()  # Explicit commit for this update
                 return (
                     None,
                     f"Senha incorreta. Tentativas restantes: {MAX_TENTATIVAS - tentativas}",
                 )
         # Sucesso
         conn.execute(
-            text("UPDATE usuarios SET tentativas_invalidas=0, bloqueado_ate=NULL, ultimo_login=:now WHERE id=:id"),
-            {"now": now, "id": user_id}
+            text(
+                "UPDATE usuarios SET tentativas_invalidas=0, bloqueado_ate=NULL, ultimo_login=:now WHERE id=:id"
+            ),
+            {"now": now, "id": user_id},
         )
-        conn.commit() # Explicit commit for this update
+        conn.commit()  # Explicit commit for this update
         return role, None
 
 
@@ -121,7 +130,7 @@ def solicitar_redefinicao(username):
     with get_db_connection() as conn:
         conn.execute(
             text("UPDATE usuarios SET redefinir_solicitado=1 WHERE username=:username"),
-            {"username": username}
+            {"username": username},
         )
         conn.commit()
 
@@ -131,7 +140,7 @@ def aprovar_redefinicao(username):
     with get_db_connection() as conn:
         conn.execute(
             text("UPDATE usuarios SET redefinir_aprovado=1 WHERE username=:username"),
-            {"username": username}
+            {"username": username},
         )
         conn.commit()
 
@@ -139,12 +148,17 @@ def aprovar_redefinicao(username):
 # --- Redefinir senha (após aprovação) ---
 def redefinir_senha(username, nova_senha):
     with get_db_connection() as conn:
-        result = conn.execute(text("SELECT redefinir_aprovado FROM usuarios WHERE username=:username"), {"username": username}).fetchone()
+        result = conn.execute(
+            text("SELECT redefinir_aprovado FROM usuarios WHERE username=:username"),
+            {"username": username},
+        ).fetchone()
         if not result or not result[0]:
             raise ValueError("Redefinição não aprovada")
         password_hash = bcrypt.hashpw(nova_senha.encode(), bcrypt.gensalt()).decode()
         conn.execute(
-            text("UPDATE usuarios SET password_hash=:password_hash, redefinir_solicitado=0, redefinir_aprovado=0 WHERE username=:username"),
+            text(
+                "UPDATE usuarios SET password_hash=:password_hash, redefinir_solicitado=0, redefinir_aprovado=0 WHERE username=:username"
+            ),
             {"password_hash": password_hash, "username": username},
         )
         conn.commit()

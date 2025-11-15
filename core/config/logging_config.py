@@ -1,10 +1,10 @@
 import logging.config
 import os
-from core.config.config import Config # Import Config
 
 # Check if python-json-logger is installed
 try:
     import pythonjsonlogger.jsonlogger
+
     JSON_LOGGER_AVAILABLE = True
 except ImportError:
     JSON_LOGGER_AVAILABLE = False
@@ -12,6 +12,7 @@ except ImportError:
 # Check if sentry-sdk is installed
 try:
     import sentry_sdk
+
     SENTRY_AVAILABLE = True
 except ImportError:
     SENTRY_AVAILABLE = False
@@ -19,9 +20,11 @@ except ImportError:
 # Check if loki-client is installed
 try:
     from core.config.loki_handler import setup_loki_handler
+
     LOKI_AVAILABLE = True
 except ImportError:
     LOKI_AVAILABLE = False
+
 
 def setup_logging():
     """
@@ -35,7 +38,7 @@ def setup_logging():
     formatter = "json" if JSON_LOGGER_AVAILABLE else "simple"
 
     # Get the desired log level from Config
-    app_log_level = "DEBUG" # <--- TEMPORARY CHANGE FOR DEBUGGING
+    app_log_level = "DEBUG"  # <--- TEMPORARY CHANGE FOR DEBUGGING
 
     logging_config = {
         "version": 1,
@@ -57,14 +60,14 @@ def setup_logging():
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": app_log_level, # Use the configured log level
+                "level": app_log_level,  # Use the configured log level
                 "formatter": "simple",
                 "stream": "ext://sys.stdout",
                 "filters": ["correlation_id"],
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
-                "level": "INFO", # File handler can remain INFO or higher
+                "level": "INFO",  # File handler can remain INFO or higher
                 "formatter": formatter,
                 "filename": os.path.join(LOGS_DIR, "app.log"),
                 "maxBytes": 10485760,  # 10MB
@@ -84,8 +87,8 @@ def setup_logging():
             },
         },
         "loggers": {
-            "": { # Root logger
-                "level": app_log_level, # Use the configured log level
+            "": {  # Root logger
+                "level": app_log_level,  # Use the configured log level
                 "handlers": ["console", "file"],
             },
             "streamlit": {

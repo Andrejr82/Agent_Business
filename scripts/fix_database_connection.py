@@ -4,7 +4,6 @@ Script para diagnosticar e corrigir problemas de conexão com o banco de dados
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -110,7 +109,7 @@ def test_different_credentials():
                 result.fetchone()
 
             logger.info(f"✅ Teste {i} SUCESSO!")
-            logger.info(f"   Credenciais funcionais encontradas:")
+            logger.info("   Credenciais funcionais encontradas:")
             logger.info(f"   Server: {creds['server']}")
             logger.info(f"   Database: {creds['database']}")
             logger.info(f"   Username: {creds['username']}")
@@ -147,8 +146,7 @@ MSSQL_PASSWORD={working_credentials['password']}
 MSSQL_TRUST_SERVER_CERTIFICATE=yes
 MSSQL_ENCRYPT=yes
 
-# Configurações da API
-OPENAI_API_KEY=your_openai_api_key_here
+
 FLASK_SECRET_KEY=your_secret_key_here
 FLASK_ENV=development
 

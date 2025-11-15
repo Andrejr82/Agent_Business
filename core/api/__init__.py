@@ -33,8 +33,7 @@ def register_routes(app, rate_limiter=None):
     try:
         # Importa os blueprints das rotas
         from .routes.chat_routes import chat_routes
-        from .routes.frontend_routes import \
-            frontend  # Importa blueprint visual
+        from .routes.frontend_routes import frontend  # Importa blueprint visual
         from .routes.product_routes import product_routes
         from .routes.query_routes import query_routes
 

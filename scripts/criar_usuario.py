@@ -8,12 +8,17 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.database import auth_db
 
+
 def main():
     """Função principal para criar um usuário."""
-    parser = argparse.ArgumentParser(description="Cria um novo usuário no banco de dados de autenticação.")
+    parser = argparse.ArgumentParser(
+        description="Cria um novo usuário no banco de dados de autenticação."
+    )
     parser.add_argument("-u", "--username", help="Nome do usuário")
     parser.add_argument("-p", "--password", help="Senha do usuário")
-    parser.add_argument("-r", "--role", default="user", help="Perfil do usuário (admin ou user)")
+    parser.add_argument(
+        "-r", "--role", default="user", help="Perfil do usuário (admin ou user)"
+    )
 
     args = parser.parse_args()
 
@@ -35,7 +40,7 @@ def main():
                 print("A senha deve ter pelo menos 6 caracteres.")
             else:
                 break
-    
+
     role = args.role
     if role not in ("admin", "user"):
         print(f"Perfil '{role}' inválido. Usando 'user'.")

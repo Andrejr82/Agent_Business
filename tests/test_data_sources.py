@@ -12,8 +12,7 @@ project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -23,30 +22,28 @@ def test_data_source_manager():
     logger.info("=" * 70)
     logger.info("TESTANDO DATA SOURCE MANAGER")
     logger.info("=" * 70)
-    
+
     try:
         from core.data_source_manager import get_data_manager
-        
+
         manager = get_data_manager()
         status = manager.get_status()
-        
+
         logger.info("\nStatus das fontes:")
         for source_name, info in status.items():
-            connected = "✓" if info['connected'] else "✗"
-            logger.info(
-                f"  {connected} {source_name}: {info['type']}"
-            )
-        
+            connected = "✓" if info["connected"] else "✗"
+            logger.info(f"  {connected} {source_name}: {info['type']}")
+
         available = manager.get_available_sources()
         logger.info(f"\nFontes disponíveis: {available}")
-        
+
         if available:
             logger.info("✓ Pelo menos uma fonte de dados está disponível")
             return True
         else:
             logger.error("✗ Nenhuma fonte de dados disponível!")
             return False
-            
+
     except Exception as e:
         logger.error(f"✗ Erro no Data Source Manager: {e}", exc_info=True)
         return False
@@ -57,41 +54,35 @@ def test_unified_tools():
     logger.info("\n" + "=" * 70)
     logger.info("TESTANDO FERRAMENTAS UNIFICADAS")
     logger.info("=" * 70)
-    
+
     try:
         from core.tools.unified_data_tools import (
             listar_dados_disponiveis,
-            consultar_dados,
             get_produtos,
         )
-        
+
         # Teste 1: Listar fontes disponíveis
         logger.info("\nTeste 1: Listar fontes disponíveis...")
         result = listar_dados_disponiveis.invoke({})
         logger.info(f"  Resultado: {result['status']}")
-        if result['status'] == 'success':
-            logger.info(
-                f"  Fontes: {result['available_sources']}"
-            )
-        
+        if result["status"] == "success":
+            logger.info(f"  Fontes: {result['available_sources']}")
+
         # Teste 2: Buscar produtos
         logger.info("\nTeste 2: Buscar produtos (limite 5)...")
         result = get_produtos.invoke({"limit": 5})
         logger.info(f"  Resultado: {result['status']}")
-        if result['status'] == 'success':
-            logger.info(
-                f"  Encontrados: {result['count']} produtos"
-            )
+        if result["status"] == "success":
+            logger.info(f"  Encontrados: {result['count']} produtos")
             logger.info(f"  Fonte: {result['source']}")
-            if result['data']:
-                first = result['data'][0]
+            if result["data"]:
+                first = result["data"][0]
                 logger.info(f"  Primeiro: {first}")
-        
+
         return True
-        
+
     except Exception as e:
-        logger.error(f"✗ Erro em ferramentas unificadas: {e}",
-                    exc_info=True)
+        logger.error(f"✗ Erro em ferramentas unificadas: {e}", exc_info=True)
         return False
 
 
@@ -100,20 +91,20 @@ def test_parquet_files():
     logger.info("\n" + "=" * 70)
     logger.info("TESTANDO ACESSO A ARQUIVOS PARQUET")
     logger.info("=" * 70)
-    
+
     try:
         import pandas as pd
         from pathlib import Path
-        
-        base_dir = Path('data/parquet_cleaned')
-        
+
+        base_dir = Path("data/parquet_cleaned")
+
         if not base_dir.exists():
             logger.warning(f"Diretório não existe: {base_dir}")
             return False
-        
-        parquet_files = list(base_dir.glob('*.parquet'))
+
+        parquet_files = list(base_dir.glob("*.parquet"))
         logger.info(f"\nArquivos Parquet encontrados ({len(parquet_files)}):")
-        
+
         for filepath in parquet_files:
             try:
                 df = pd.read_parquet(filepath)
@@ -123,9 +114,9 @@ def test_parquet_files():
                 )
             except Exception as e:
                 logger.warning(f"  ✗ {filepath.name}: {e}")
-        
+
         return len(parquet_files) > 0
-        
+
     except Exception as e:
         logger.error(f"✗ Erro ao testar Parquet: {e}", exc_info=True)
         return False
@@ -136,20 +127,20 @@ def test_sql_server():
     logger.info("\n" + "=" * 70)
     logger.info("TESTANDO CONEXÃO SQL SERVER")
     logger.info("=" * 70)
-    
+
     try:
         from core.database.database import get_db_manager
-        
+
         db = get_db_manager()
         success, msg = db.test_connection()
-        
+
         if success:
             logger.info(f"✓ {msg}")
             return True
         else:
             logger.warning(f"⚠ {msg}")
             return False
-            
+
     except Exception as e:
         logger.warning(f"⚠ SQL Server não disponível: {e}")
         return False
@@ -160,26 +151,24 @@ def test_agent_with_data():
     logger.info("\n" + "=" * 70)
     logger.info("TESTANDO AGENTE COM DADOS REAIS")
     logger.info("=" * 70)
-    
+
     try:
         from core.query_processor import QueryProcessor
-        
+
         processor = QueryProcessor()
-        
+
         # Teste 1: Pergunta simples
         logger.info("\nTeste 1: Pergunta simples...")
         result = processor.process_query("Qual é a data de hoje?")
         logger.info(f"  Resposta: {str(result)[:100]}...")
-        
+
         # Teste 2: Pergunta sobre dados
         logger.info("\nTeste 2: Pergunta sobre produtos...")
-        result = processor.process_query(
-            "Quantos produtos você consegue encontrar?"
-        )
+        result = processor.process_query("Quantos produtos você consegue encontrar?")
         logger.info(f"  Resposta: {str(result)[:100]}...")
-        
+
         return True
-        
+
     except Exception as e:
         logger.error(f"✗ Erro no agente: {e}", exc_info=True)
         return False
@@ -189,32 +178,33 @@ def main():
     """Executa todos os testes."""
     logger.info("\n")
     logger.info("╔" + "═" * 68 + "╗")
-    logger.info("║" + " " * 10 +
-               "TESTE COMPLETO - ACESSO A MÚLTIPLAS FONTES" + " " * 17 + "║")
+    logger.info(
+        "║" + " " * 10 + "TESTE COMPLETO - ACESSO A MÚLTIPLAS FONTES" + " " * 17 + "║"
+    )
     logger.info("╚" + "═" * 68 + "╝")
-    
+
     results = {}
-    
-    results['data_source_manager'] = test_data_source_manager()
-    results['parquet_files'] = test_parquet_files()
-    results['sql_server'] = test_sql_server()
-    results['unified_tools'] = test_unified_tools()
+
+    results["data_source_manager"] = test_data_source_manager()
+    results["parquet_files"] = test_parquet_files()
+    results["sql_server"] = test_sql_server()
+    results["unified_tools"] = test_unified_tools()
     # results['agent'] = test_agent_with_data()
-    
+
     # Relatório final
     logger.info("\n" + "=" * 70)
     logger.info("RELATÓRIO FINAL")
     logger.info("=" * 70)
-    
+
     passed = sum(1 for v in results.values() if v)
     total = len(results)
-    
+
     for test_name, result in results.items():
         status = "✓ PASSOU" if result else "✗ FALHOU"
         logger.info(f"{test_name.upper()}: {status}")
-    
+
     logger.info(f"\nResultado: {passed}/{total} testes passaram")
-    
+
     if passed > 0:
         logger.info("\n✓ Sistema pronto para acessar dados!")
         logger.info("\nFontes de dados configuradas:")

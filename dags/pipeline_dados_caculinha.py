@@ -6,6 +6,7 @@
 import subprocess
 import os
 
+
 def run_script(script_path):
     """Executa um script Python e retorna seu status."""
     print(f"Executando: {script_path}")
@@ -18,7 +19,9 @@ def run_script(script_path):
         # Ajuste o caminho para o executável python se necessário
         # Por exemplo, se estiver em um venv: os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.venv', 'Scripts', 'python.exe')
         # Para simplicidade, assumimos que 'python' está no PATH ou que o orquestrador gerencia isso.
-        result = subprocess.run(['python', script_path], check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            ["python", script_path], check=True, capture_output=True, text=True
+        )
         print(f"Saída de {script_path}:\n{result.stdout}")
         if result.stderr:
             print(f"Erros de {script_path}:\n{result.stderr}")
@@ -29,8 +32,11 @@ def run_script(script_path):
         print(f"Stderr: {e.stderr}")
         return False
     except FileNotFoundError:
-        print(f"Erro: O interpretador 'python' ou o script '{script_path}' não foi encontrado.")
+        print(
+            f"Erro: O interpretador 'python' ou o script '{script_path}' não foi encontrado."
+        )
         return False
+
 
 def main_pipeline():
     """Define a sequência de execução do pipeline de dados do Caçulinha BI."""
@@ -38,27 +44,30 @@ def main_pipeline():
 
     # Caminho base para os scripts, relativo ao diretório raiz do projeto
     # Em um orquestrador, esses caminhos seriam absolutos ou gerenciados pelo ambiente.
-    scripts_base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts')
+    scripts_base_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "scripts"
+    )
 
     # Passo 1: Exportar dados do SQL Server para Parquet
-    export_script = os.path.join(scripts_base_path, 'export_sqlserver_to_parquet.py')
+    export_script = os.path.join(scripts_base_path, "export_sqlserver_to_parquet.py")
     if not run_script(export_script):
         print("Falha na exportação do SQL Server para Parquet. Abortando pipeline.")
         return
 
     # Passo 2: Limpar dados Parquet
-    clean_script = os.path.join(scripts_base_path, 'clean_parquet_data.py')
+    clean_script = os.path.join(scripts_base_path, "clean_parquet_data.py")
     if not run_script(clean_script):
         print("Falha na limpeza dos dados Parquet. Abortando pipeline.")
         return
 
     # Passo 3: Unir arquivos Parquet
-    merge_script = os.path.join(scripts_base_path, 'merge_parquets.py')
+    merge_script = os.path.join(scripts_base_path, "merge_parquets.py")
     if not run_script(merge_script):
         print("Falha na união dos arquivos Parquet. Abortando pipeline.")
         return
 
     print("Pipeline de dados do Caçulinha BI concluído com sucesso!")
+
 
 if __name__ == "__main__":
     main_pipeline()

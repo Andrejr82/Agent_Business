@@ -254,7 +254,7 @@ Exemplo: consultar_dados("ADMAT", limite=50, coluna="categoria", valor="FERRAGEM
 ### core/agents/tool_agent.py
 ✅ Integrado com unified_data_tools  
 ✅ LangChain agent executor  
-✅ OpenAI GPT-4o como LLM  
+  
 
 ---
 

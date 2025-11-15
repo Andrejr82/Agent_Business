@@ -3,6 +3,7 @@ from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from loki_client import LokiClient
 
+
 class LokiHandler(logging.Handler):
     """
     A logging handler that sends logs to a Loki server.
@@ -15,6 +16,7 @@ class LokiHandler(logging.Handler):
     def emit(self, record):
         log_entry = self.format(record)
         self.client.push(log_entry)
+
 
 def setup_loki_handler(host, port, tags=None):
     """

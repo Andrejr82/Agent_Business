@@ -11,8 +11,9 @@ from core.query_processor import QueryProcessor
 queries = [
     "Qual é o preço do produto 369947?",
     "Liste os 10 produtos mais caros da categoria 'BRINQUEDOS'.",
-    "gere os dez tecidos mais vendidos."
+    "gere os dez tecidos mais vendidos.",
 ]
+
 
 def main():
     query_processor = QueryProcessor()
@@ -21,7 +22,8 @@ def main():
         response = query_processor.process_query(query)
         print(f"Response: {response}")
         print("-------------------------------------\n")
-        time.sleep(60) # Add a 60-second delay between queries
+        time.sleep(60)  # Add a 60-second delay between queries
+
 
 if __name__ == "__main__":
     main()

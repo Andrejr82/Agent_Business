@@ -1,0 +1,235 @@
+from typing import List, Dict, Any, Optional
+import logging
+import threading
+import time
+from queue import Queue
+import json # Adicionado para json.dumps
+from core.llm_base import BaseLLMAdapter
+from core.config.config import Config
+
+GEMINI_AVAILABLE = False # Assume false until all imports succeed
+
+try:
+    import google.generativeai as genai
+    from google.api_core.exceptions import RetryError, InternalServerError
+    # from google.generativeai.types import ToolCode # Removido
+    from google.generativeai.types import FunctionDeclaration
+    GEMINI_AVAILABLE = True
+except ImportError as e:
+    print(f"Erro de importação do Gemini: {e}")
+
+
+class GeminiLLMAdapter(BaseLLMAdapter):
+    """
+    Adaptador para Google Gemini API.
+    Implementa padrão similar ao OpenAI com retry automático e tratamento de erros.
+    """
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+
+        if not GEMINI_AVAILABLE:
+            raise ImportError(
+                "google-generativeai não está instalado. "
+                "Execute: pip install google-generativeai"
+            )
+
+        if not Config().GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY não configurada no arquivo .env")
+
+        genai.configure(api_key=Config().GEMINI_API_KEY)
+
+        self.model_name = Config().GEMINI_MODEL_NAME
+        self.max_retries = 3
+        self.retry_delay = 2
+
+        self.logger.info(f"Gemini adapter inicializado com modelo: {self.model_name}")
+
+    def get_completion(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Obtém completion da API Gemini com retry automático.
+
+        Args:
+            messages: Lista de mensagens no formato OpenAI-like
+            tools: Lista opcional de ferramentas no formato OpenAI-like
+
+        Returns:
+            Dicionário com resultado ou erro
+        """
+        for attempt in range(self.max_retries):
+            try:
+                q = Queue()
+
+                def worker():
+                    try:
+                        gemini_messages = self._convert_messages(messages)
+                        gemini_tools = self._convert_tools(tools) if tools else []
+
+                        model = genai.GenerativeModel(
+                            model_name=self.model_name,
+                            tools=gemini_tools if gemini_tools else None,
+                        )
+
+                        chat_session = model.start_chat(history=gemini_messages[:-1])
+
+                        self.logger.info(
+                            f"Chamada Gemini (tentativa {attempt + 1}/"
+                            f"{self.max_retries})"
+                        )
+
+                        response = chat_session.send_message(gemini_messages[-1]["parts"])
+
+                        self.logger.info("Chamada Gemini concluída.")
+
+                        result = {"content": response.text}
+
+                        if response.candidates:
+                            candidate = response.candidates[0]
+                            if candidate.content and candidate.content.parts:
+                                for part in candidate.content.parts:
+                                    if part.function_call:
+                                        tool_calls = []
+                                        function_call = part.function_call
+                                        tool_calls.append({
+                                            "id": f"call_{function_call.name}", # Gemini doesn't provide an ID, so we generate one
+                                            "function": {
+                                                "arguments": json.dumps(function_call.args),
+                                                "name": function_call.name,
+                                            },
+                                            "type": "function",
+                                        })
+                                        result["tool_calls"] = tool_calls
+                                        break # Only handle the first function call for now
+
+                        q.put(result)
+
+                    except Exception as e:
+                        error_msg = str(e).lower()
+
+                        retentable = any(
+                            [
+                                "quota" in error_msg,
+                                "rate" in error_msg,
+                                "timeout" in error_msg,
+                                "500" in error_msg,
+                                "503" in error_msg,
+                                "429" in error_msg,
+                            ]
+                        )
+
+                        self.logger.warning(
+                            f"Erro Gemini na tentativa {attempt + 1}: {e} "
+                            f"(retentável: {retentable})"
+                        )
+
+                        q.put({"error": f"Erro: {e}", "retry": retentable})
+
+                thread = threading.Thread(target=worker)
+                thread.start()
+                thread.join(timeout=90.0)
+
+                if thread.is_alive():
+                    self.logger.warning(f"Thread timeout tentativa {attempt + 1}")
+                    continue
+
+                result = q.get()
+
+                if "error" not in result:
+                    return result
+
+                if result.get("retry") and (attempt < self.max_retries - 1):
+                    delay = self.retry_delay * (2**attempt)
+                    self.logger.info(
+                        f"Aguardando {delay}s antes da próxima tentativa..."
+                    )
+                    time.sleep(delay)
+                    continue
+
+                return result
+
+            except Exception as e:
+                self.logger.error(
+                    f"Erro externo tentativa {attempt + 1}: {e}", exc_info=True
+                )
+                if attempt < self.max_retries - 1:
+                    delay = self.retry_delay * (2**attempt)
+                    time.sleep(delay)
+                    continue
+                return {"error": f"Erro após {self.max_retries} tentativas: {e}"}
+
+        return {"error": f"Falha após {self.max_retries} tentativas"}
+
+    def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """
+        Converte mensagens do formato OpenAI-like para formato Gemini.
+
+        Formato OpenAI-like: [{"role": "user", "content": "..."}]
+        Formato Gemini: [{"role": "user", "parts": [{"text": "..."}]}]
+        """
+        gemini_messages = []
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            tool_calls = msg.get("tool_calls")
+            function_call = msg.get("function_call")
+
+            # Mapear roles
+            if role == "assistant":
+                gemini_role = "model"
+            elif role == "function" or role == "tool":
+                gemini_role = "function" # Gemini uses 'function' role for tool responses
+            else:
+                gemini_role = "user"
+
+            if tool_calls:
+                # Handle tool calls from assistant
+                parts = []
+                for tc in tool_calls:
+                    parts.append({
+                        "function_call": {
+                            "name": tc["function"]["name"],
+                            "args": json.loads(tc["function"]["arguments"])
+                        }
+                    })
+                gemini_msg = {"role": gemini_role, "parts": parts}
+            elif function_call:
+                # Handle tool responses
+                gemini_msg = {
+                    "role": gemini_role,
+                    "parts": [
+                        {
+                            "function_response": {
+                                "name": function_call["name"],
+                                "response": {"content": content}
+                            }
+                        }
+                    ]
+                }
+            else:
+                gemini_msg = {"role": gemini_role, "parts": [{"text": content}]}
+
+            gemini_messages.append(gemini_msg)
+
+        return gemini_messages
+
+    def _convert_tools(self, tools: List[Dict[str, Any]]) -> List[FunctionDeclaration]:
+        """
+        Converte ferramentas do formato OpenAI-like para Gemini Tool Format.
+        """
+        gemini_tools = []
+
+        for tool in tools:
+            function_spec = tool.get("function", {})
+            gemini_tool = FunctionDeclaration(
+                name=function_spec.get("name", ""),
+                description=function_spec.get("description", ""),
+                parameters=function_spec.get("parameters", {}),
+            )
+            gemini_tools.append(gemini_tool)
+
+        return gemini_tools

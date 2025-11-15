@@ -149,8 +149,9 @@ class ChartGenerator:
                 "message": f"Erro ao gerar gráfico de vendas por categoria: {str(e)}",
             }
 
-
-    def create_generic_chart(self, data, chart_type, x_col, y_col, title="Gráfico Personalizado"):
+    def create_generic_chart(
+        self, data, chart_type, x_col, y_col, title="Gráfico Personalizado"
+    ):
         """Cria um gráfico genérico com base nas especificações.
 
         Args:
@@ -165,21 +166,31 @@ class ChartGenerator:
         """
         try:
             if data is None or data.empty:
-                return {"success": False, "message": "Dados insuficientes para gerar o gráfico."}
+                return {
+                    "success": False,
+                    "message": "Dados insuficientes para gerar o gráfico.",
+                }
 
             fig = None
-            if chart_type == 'bar':
+            if chart_type == "bar":
                 fig = px.bar(data, x=x_col, y=y_col, title=title)
-            elif chart_type == 'line':
+            elif chart_type == "line":
                 fig = px.line(data, x=x_col, y=y_col, title=title)
-            elif chart_type == 'pie':
+            elif chart_type == "pie":
                 # Para gráfico de pizza, y_col é 'values' e x_col é 'names'
                 fig = px.pie(data, values=y_col, names=x_col, title=title)
             else:
-                return {"success": False, "message": f"Tipo de gráfico '{chart_type}' não suportado."}
+                return {
+                    "success": False,
+                    "message": f"Tipo de gráfico '{chart_type}' não suportado.",
+                }
 
             fig.update_layout(template="plotly_white")
-            return {"success": True, "plotly_fig": fig, "message": "Gráfico gerado com sucesso!"}
+            return {
+                "success": True,
+                "plotly_fig": fig,
+                "message": "Gráfico gerado com sucesso!",
+            }
 
         except Exception as e:
             logging.error(f"Erro ao gerar gráfico genérico: {e}")

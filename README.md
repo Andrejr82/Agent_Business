@@ -2,7 +2,7 @@
 
 ## Descrição do Projeto
 
-O Caçulinha BI é um sistema de Business Intelligence desenvolvido em Python, utilizando SQL Server, Parquet e a API da OpenAI, com uma interface interativa construída com Streamlit. O objetivo principal é fornecer insights e análises de dados de forma eficiente e acessível.
+O Caçulinha BI é um sistema de Business Intelligence desenvolvido em Python, utilizando SQL Server, Parquet e a API do Google Gemini, com uma interface interativa construída com Streamlit. O objetivo principal é fornecer insights e análises de dados de forma eficiente e acessível.
 
 Este projeto está em constante evolução, com foco em melhorias contínuas em sua arquitetura, segurança e eficiência. As próximas etapas incluem a integração de um banco de dados robusto para gerenciamento de usuários, uma UI para gerenciamento de catálogo de dados, orquestração LLM avançada, containerização com Docker e a implementação de um pipeline CI/CD.
 
@@ -33,7 +33,7 @@ Para configurar e executar o projeto localmente, siga os passos abaixo:
 4.  **Configure as variáveis de ambiente:**
     Crie um arquivo `.env` na raiz do projeto, baseado no `.env.example`, e preencha com suas credenciais e configurações. Exemplo:
     ```
-    OPENAI_API_KEY=sua_chave_aqui
+
     MSSQL_SERVER=seu_servidor_sql
     MSSQL_DATABASE=seu_banco_de_dados
     MSSQL_USER=seu_usuario

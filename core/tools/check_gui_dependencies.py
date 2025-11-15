@@ -30,7 +30,7 @@ def main():
     dependencies = [
         "streamlit",
         "langchain",
-        "langchain_openai",
+
         "langchain_community",
         "sqlalchemy",
         "pyodbc",

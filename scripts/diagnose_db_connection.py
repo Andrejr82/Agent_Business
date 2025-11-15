@@ -1,6 +1,7 @@
 """
 Script de diagnóstico para testar a conexão com o banco de dados.
 """
+
 import sys
 import os
 import logging
@@ -12,7 +13,10 @@ from core.database.database import get_db_manager
 from core.config.config import Config
 
 # Configurar logging básico para ver a saída
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def diagnose_database_connection():
     """
@@ -38,26 +42,33 @@ def diagnose_database_connection():
         success, message = db_manager.test_connection()
 
         if success:
-            logger.info("="*50)
-            logger.info("✅ SUCESSO: A conexão com o banco de dados foi estabelecida com êxito.")
+            logger.info("=" * 50)
+            logger.info(
+                "✅ SUCESSO: A conexão com o banco de dados foi estabelecida com êxito."
+            )
             logger.info(f"Mensagem do sistema: {message}")
-            logger.info("="*50)
+            logger.info("=" * 50)
         else:
-            logger.error("="*50)
+            logger.error("=" * 50)
             logger.error("❌ FALHA: Não foi possível conectar ao banco de dados.")
             logger.error(f"Mensagem de erro: {message}")
-            logger.error("Por favor, verifique as seguintes variáveis no seu arquivo .env:")
+            logger.error(
+                "Por favor, verifique as seguintes variáveis no seu arquivo .env:"
+            )
             logger.error("- MSSQL_SERVER")
             logger.error("- MSSQL_DATABASE")
             logger.error("- MSSQL_USER")
             logger.error("- MSSQL_PASSWORD")
             logger.error("- DB_DRIVER")
-            logger.error("="*50)
+            logger.error("=" * 50)
 
     except Exception as e:
-        logger.error("="*50)
-        logger.error(f"Ocorreu um erro inesperado durante o diagnóstico: {e}", exc_info=True)
-        logger.error("="*50)
+        logger.error("=" * 50)
+        logger.error(
+            f"Ocorreu um erro inesperado durante o diagnóstico: {e}", exc_info=True
+        )
+        logger.error("=" * 50)
+
 
 if __name__ == "__main__":
     diagnose_database_connection()

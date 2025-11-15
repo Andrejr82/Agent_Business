@@ -9,18 +9,25 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ui.ui_components import get_image_download_link
 
 st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
-st.markdown("<div class='info-box'>Visualize e organize seus gráficos em um dashboard personalizado.</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='info-box'>Visualize e organize seus gráficos em um dashboard personalizado.</div>",
+    unsafe_allow_html=True,
+)
 
 # Verificar se existem gráficos no dashboard
 if not st.session_state.get("dashboard_charts", []):
-    st.warning("Nenhum gráfico adicionado ao dashboard ainda. Use o Assistente de BI para gerar gráficos e adicioná-los aqui.")
+    st.warning(
+        "Nenhum gráfico adicionado ao dashboard ainda. Use o Assistente de BI para gerar gráficos e adicioná-los aqui."
+    )
 else:
     # Opções de organização
     col1, col2 = st.columns(2)
     with col1:
         layout = st.radio("Layout", ["1 coluna", "2 colunas", "3 colunas"])
     with col2:
-        sort_by = st.selectbox("Ordenar por", ["Mais recentes", "Mais antigos", "Tipo de gráfico"])
+        sort_by = st.selectbox(
+            "Ordenar por", ["Mais recentes", "Mais antigos", "Tipo de gráfico"]
+        )
 
     # Ordenar gráficos
     charts = st.session_state.dashboard_charts.copy()
@@ -46,14 +53,24 @@ else:
     for i, chart_info in enumerate(charts):
         with cols[i % num_cols]:
             with st.container():
-                st.markdown(f"<div class='sub-header'>{chart_info['title']}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div class='sub-header'>{chart_info['title']}</div>",
+                    unsafe_allow_html=True,
+                )
                 st.plotly_chart(chart_info["fig"], use_container_width=True)
 
                 # Opções para cada gráfico
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("Exportar como PNG", key=f"export_png_{i}"):
-                        st.markdown(get_image_download_link(chart_info["fig"], f"grafico_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}", "📥 Clique aqui para baixar como PNG"), unsafe_allow_html=True)
+                        st.markdown(
+                            get_image_download_link(
+                                chart_info["fig"],
+                                f"grafico_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                                "📥 Clique aqui para baixar como PNG",
+                            ),
+                            unsafe_allow_html=True,
+                        )
                 with col2:
                     if st.button("Remover do Dashboard", key=f"remove_{i}"):
                         st.session_state.dashboard_charts.remove(chart_info)

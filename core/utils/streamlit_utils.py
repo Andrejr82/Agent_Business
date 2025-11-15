@@ -9,6 +9,7 @@ import pandas as pd
 
 try:
     import plotly.graph_objects as go
+
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 def render_output(output, message_type: str = "text"):
     """
     Renderiza diferentes tipos de output no Streamlit.
-    
+
     Args:
         output: Conteúdo a renderizar (DataFrame, Figure Plotly, texto, etc)
         message_type: Tipo da mensagem ('text', 'chart', 'dataframe')
@@ -36,8 +37,7 @@ def render_output(output, message_type: str = "text"):
             return
 
         # Se é dicionário Plotly JSON (estrutura com 'data' e 'layout')
-        if isinstance(output, dict) and \
-           'data' in output and 'layout' in output:
+        if isinstance(output, dict) and "data" in output and "layout" in output:
             try:
                 if HAS_PLOTLY:
                     fig = go.Figure(output)
@@ -54,7 +54,7 @@ def render_output(output, message_type: str = "text"):
             return
 
         # Fallback: tentar renderizar como está
-        if hasattr(output, 'to_json'):
+        if hasattr(output, "to_json"):
             # Provavelmente é uma figura Plotly
             st.plotly_chart(output, use_container_width=True)
             return
@@ -63,10 +63,7 @@ def render_output(output, message_type: str = "text"):
         st.json(output)
 
     except Exception as e:
-        logger.error(
-            f"Erro ao renderizar output: {e}",
-            exc_info=True
-        )
+        logger.error(f"Erro ao renderizar output: {e}", exc_info=True)
         st.error(f"Erro ao renderizar conteúdo: {str(e)}")
         try:
             st.write(str(output))
@@ -78,7 +75,7 @@ def render_output(output, message_type: str = "text"):
 def render_message_history(messages, session_key: str):
     """
     Renderiza o histórico de mensagens.
-    
+
     Args:
         messages: Lista de mensagens com 'role' e 'output'
         session_key: Chave de sessão para referência

@@ -5,7 +5,6 @@ Execute este script para melhorar a performance das consultas
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
 

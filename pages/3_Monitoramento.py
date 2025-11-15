@@ -3,12 +3,17 @@ import os
 import time
 import pandas as pd
 import requests
-from sqlalchemy import create_engine
-
+from core.data_source_manager import get_data_manager
+from core.llm_gemini_adapter import GeminiLLMAdapter
 from core.database import sql_server_auth_db as auth_db
 
-st.markdown("<h1 class='main-header'>Monitoramento do Sistema</h1>", unsafe_allow_html=True)
-st.markdown("<div class='info-box'>Acompanhe os logs do sistema e o status dos principais serviços.</div>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 class='main-header'>Monitoramento do Sistema</h1>", unsafe_allow_html=True
+)
+st.markdown(
+    "<div class='info-box'>Acompanhe os logs do sistema e o status dos principais serviços.</div>",
+    unsafe_allow_html=True,
+)
 
 # --- LOGS DO SISTEMA ---
 st.markdown("### Logs do Sistema")
@@ -21,7 +26,9 @@ if not log_files:
 else:
     selected_log = st.selectbox("Selecione o arquivo de log", log_files)
     keyword = st.text_input("Filtrar por palavra-chave (opcional)")
-    log_level = st.selectbox("Filtrar por nível", ["Todos", "INFO", "WARNING", "ERROR", "DEBUG"])
+    log_level = st.selectbox(
+        "Filtrar por nível", ["Todos", "INFO", "WARNING", "ERROR", "DEBUG"]
+    )
     log_path = os.path.join(log_dir, selected_log)
     log_lines = []
     if os.path.exists(log_path):
@@ -53,43 +60,36 @@ try:
 except Exception as e:
     api_status = f"FALHA ({str(e)[:30]})"
 status_data.append({"Serviço": "API", "Status": api_status, "Tempo": api_time})
-# Checagem do Banco de Dados
-db_status = "-"
-db_time = "-"
+# Checagem da fonte de dados (Parquet)
+ds = get_data_manager()
+data_status = "-"
+data_time = "-"
 try:
-    from core.config.config import DB_CONNECTION_STRING
-
     start = time.time()
-    engine = create_engine(DB_CONNECTION_STRING)
-    with engine.connect() as conn:
-        conn.execute("SELECT 1")
-    db_time = f"{(time.time() - start)*1000:.0f} ms"
-    db_status = "OK"
+    sources = ds.get_available_sources()
+    info = ds.get_source_info()
+    data_time = f"{(time.time() - start)*1000:.0f} ms"
+    data_status = "OK" if sources else "FALHA (nenhuma fonte)"
 except Exception as e:
-    db_status = f"FALHA ({str(e)[:30]})"
-status_data.append({"Serviço": "Banco de Dados", "Status": db_status, "Tempo": db_time})
-# Checagem do LLM (OpenAI)
+    data_status = f"FALHA ({str(e)[:30]})"
+status_data.append(
+    {"Serviço": "Fonte de Dados (Parquet)", "Status": data_status, "Tempo": data_time}
+)
+
+# Checagem do LLM (Gemini)
 llm_status = "-"
 llm_time = "-"
 try:
-    import openai
-
-    from core.utils.openai_config import OPENAI_API_KEY
-
-    openai.api_key = OPENAI_API_KEY
+    adapter = GeminiLLMAdapter()
     start = time.time()
-    openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "ping"}],
-        max_tokens=1,
-        request_timeout=3,
-    )
+    resp = adapter.get_completion(messages=[{"role": "user", "content": "ping"}])
     llm_time = f"{(time.time() - start)*1000:.0f} ms"
-    llm_status = "OK"
+    llm_status = "OK" if "error" not in resp else f"FALHA ({resp.get('error')})"
 except Exception as e:
     llm_status = f"FALHA ({str(e)[:30]})"
-status_data.append({"Serviço": "LLM (OpenAI)", "Status": llm_status, "Tempo": llm_time})
+status_data.append({"Serviço": "LLM (Gemini)", "Status": llm_status, "Tempo": llm_time})
 st.dataframe(pd.DataFrame(status_data), use_container_width=True)
+
 
 # --- Função para admins aprovarem redefinição de senha ---
 def painel_aprovacao_redefinicao():
@@ -98,7 +98,9 @@ def painel_aprovacao_redefinicao():
 
     conn = sqlite3.connect(auth_db.DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT username FROM usuarios WHERE redefinir_solicitado=1 AND redefinir_aprovado=0")
+    c.execute(
+        "SELECT username FROM usuarios WHERE redefinir_solicitado=1 AND redefinir_aprovado=0"
+    )
     pendentes = [row[0] for row in c.fetchall()]
     if not pendentes:
         st.info("Nenhuma solicitação pendente.")
@@ -113,6 +115,7 @@ def painel_aprovacao_redefinicao():
                     st.success(f"Solicitação de {user} aprovada!")
                     st.rerun()
     conn.close()
+
 
 # --- Função para usuário redefinir senha após aprovação ---
 def tela_redefinir_senha():
@@ -131,7 +134,9 @@ def tela_redefinir_senha():
         else:
             try:
                 auth_db.redefinir_senha(username, nova)
-                st.success("Senha redefinida com sucesso! Você será redirecionado para o login.")
+                st.success(
+                    "Senha redefinida com sucesso! Você será redirecionado para o login."
+                )
                 time.sleep(2)
                 for k in ["authenticated", "username", "role", "ultimo_login"]:
                     if k in st.session_state:
@@ -139,6 +144,7 @@ def tela_redefinir_senha():
                 st.rerun()
             except Exception as e:
                 st.error(str(e))
+
 
 # --- Checagem para exibir tela de redefinição após aprovação ---
 def checar_redefinicao_aprovada():
@@ -153,6 +159,7 @@ def checar_redefinicao_aprovada():
     row = c.fetchone()
     conn.close()
     return bool(row and row[0])
+
 
 # --- Após login, checar se usuário deve redefinir senha ---
 if st.session_state.get("authenticated") and checar_redefinicao_aprovada():

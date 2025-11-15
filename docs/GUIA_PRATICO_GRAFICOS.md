@@ -284,10 +284,7 @@ if response.get("text"):
 
 ```python
 from core.agents.supervisor_agent import SupervisorAgent
-from core.llm_adapter import OpenAILLMAdapter
 
-# Inicializar
-adapter = OpenAILLMAdapter()
 supervisor = SupervisorAgent(adapter)
 
 # Usar

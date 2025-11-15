@@ -15,10 +15,10 @@ Estes são os componentes centrais para as integrações do sistema, seja com fo
 *   `data/parquet/`, `data/parquet_cleaned/`: Pastas que armazenam os dados brutos e limpos, resultado da integração.
 *   `scripts/clean_parquet_data.py`, `scripts/merge_parquets.py`: Scripts que processam e preparam os dados após a importação.
 
-**Integração com o Modelo de Linguagem (OpenAI):**
-*   `core/llm_adapter.py`: Adapta a comunicação com o LLM (OpenAI).
+**Integração com o Modelo de Linguagem (LLM):**
+*   `core/llm_gemini_adapter.py`: Adapta a comunicação com o LLM (Gemini).
 *   `core/agents/`: Pasta que contém a lógica do agente que interage com o LLM.
-*   `.env`: Arquivo de configuração para a chave da API da OpenAI.
+*   `.env`: Arquivo de configuração para a chave da API do Gemini.
 
 **Integração entre Componentes Internos:**
 *   `core/query_processor.py`: Processa as queries do usuário e as envia para o agente.

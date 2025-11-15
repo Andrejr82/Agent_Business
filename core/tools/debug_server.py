@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-from core.config import OPENAI_API_KEY, SQLALCHEMY_DATABASE_URI
+from core.config import SQLALCHEMY_DATABASE_URI
 
 """
 Script para depurar o servidor e identificar erros.
@@ -22,17 +22,10 @@ try:
     logging.info("Verificando importações...")
 
     # Tenta importar as dependências
-    logging.info("LangChain OpenAI importado com sucesso")
-
     logging.info("SQLDatabase importado com sucesso")
 
     # Verifica a configuração
     logging.info("Verificando configuração...")
-
-    if not OPENAI_API_KEY:
-        logging.error("OPENAI_API_KEY não está configurada")
-    else:
-        logging.info("OPENAI_API_KEY configurada")
 
     if not SQLALCHEMY_DATABASE_URI:
         logging.error("SQLALCHEMY_DATABASE_URI não está configurada")

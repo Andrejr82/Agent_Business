@@ -2,7 +2,7 @@
 
 **Persona:** Você é um engenheiro de software sênior especializado em arquitetura de sistemas, segurança e MLOps. Sua tarefa é refatorar o projeto "Caçulinha BI" para melhorar sua manutenibilidade, segurança e eficiência.
 
-**Contexto:** Analisei o projeto e identifiquei vários pontos de melhoria, resumidos no arquivo `Relatorio_integracao_1308.md`. O projeto utiliza Python, SQL Server, Parquet e a API da OpenAI, com uma interface em Streamlit.
+**Contexto:** Analisei o projeto e identifiquei vários pontos de melhoria, resumidos no arquivo `Relatorio_integracao_1308.md`. O projeto utiliza Python, SQL Server, Parquet e a API do Gemini, com uma interface em Streamlit.
 
 **Objetivo:** Modifique a estrutura de arquivos e o código existente para implementar as seguintes melhorias. Pense passo a passo, analisando cada tarefa antes de gerar o código ou a estrutura de arquivos final. Para cada etapa, explique brevemente a alteração que você está fazendo.
 
@@ -13,9 +13,9 @@
 **Tarefa 1: Gestão de Configuração e Segurança**
 
 1.1. **Refatorar Gestão de Segredos:**
-    - Modifique o arquivo `core/llm_adapter.py` para parar de ler a chave da API da OpenAI diretamente do ambiente.
-    - Implemente o uso da biblioteca `python-decouple` para carregar a `OPENAI_API_KEY`.
-    - Crie um arquivo `.env.example` na raiz do projeto com o conteúdo: `OPENAI_API_KEY=sua_chave_aqui`.
+    - Modifique o arquivo `core/llm_adapter.py` para parar de ler a chave da API do Gemini diretamente do ambiente.
+    - Implemente o uso da biblioteca `python-decouple` para carregar a `GEMINI_API_KEY`.
+    - Crie um arquivo `.env.example` na raiz do projeto com o conteúdo: `GEMINI_API_KEY=sua_chave_aqui`.
     - Adicione o arquivo `.env` ao final do arquivo `.gitignore`.
 
 1.3. **Configuração LangSmith (Opcional):**
@@ -84,6 +84,6 @@
 5.1. **Desacoplar Adaptador do LLM:**
     - Crie um novo arquivo em `core/llm_base.py`. Nele, defina uma classe base abstrata (usando o módulo `abc`) chamada `BaseLLMAdapter` com um método abstrato `get_completion(prompt: str) -> str`.
     - Modifique a classe existente em `core/llm_adapter.py` para que ela herde de `BaseLLMAdapter`.
-    - Atualize o arquivo `core/query_processor.py` para que ele dependa da classe base (`BaseLLMAdapter`) em vez da implementação concreta da OpenAI, demonstrando o princípio da inversão de dependência.
+    - Atualize o arquivo `core/query_processor.py` para que ele dependa da classe base (`BaseLLMAdapter`) em vez da implementação concreta do Gemini, demonstrando o princípio da inversão de dependência.
 
 Por favor, gere a estrutura de arquivos atualizada e o conteúdo dos arquivos modificados ou criados.

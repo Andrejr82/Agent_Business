@@ -45,7 +45,11 @@ class Config:
         return (
             f"mssql+pyodbc://{self.DB_USER}:{password_quoted}@{self.DB_SERVER}:{self.DB_PORT}/{self.DB_DATABASE}?"
             f"driver={driver_quoted}&TrustServerCertificate={self.DB_TRUST_SERVER_CERTIFICATE}"
-            + (f"&Encrypt={self.DB_ENCRYPT}" if self.DB_ENCRYPT.lower() == "yes" else "")
+            + (
+                f"&Encrypt={self.DB_ENCRYPT}"
+                if self.DB_ENCRYPT.lower() == "yes"
+                else ""
+            )
         )
 
     # Modo de demonstração (sem acesso ao banco de dados)
@@ -56,9 +60,12 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "chave_secreta_padrao")
     SESSION_COOKIE_PATH = "/"
 
-    # OpenAI API Key and Model Name
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-3.5-turbo")
+    # Gemini API Key and Model Name
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash-lite")
+
+    # LLM Provider Selection
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
     # Configurações de log
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -71,25 +78,15 @@ class Config:
 
 # Para manter a compatibilidade com o resto do código que pode estar importando
 # as variáveis diretamente, podemos instanciar a classe aqui.
-# No entanto, a prática recomendada seria importar a classe `Config` e usar `Config.VARIAVEL`.
-# Por agora, faremos a instância para minimizar quebras.
+# Recomendado: importar a classe `Config` e usar `Config.VARIAVEL`.
 config = Config()
 
-# Exportando variáveis para compatibilidade com o código legado que pode fazer `from core.config.config import DEBUG`
+# Exportando variáveis para compatibilidade com o código legado
 DEBUG = config.DEBUG
 SECRET_KEY = config.SECRET_KEY
 DEMO_MODE = config.DEMO_MODE
-OPENAI_API_KEY = config.OPENAI_API_KEY
-LLM_MODEL_NAME = config.LLM_MODEL_NAME
+GEMINI_API_KEY = config.GEMINI_API_KEY
+GEMINI_MODEL_NAME = config.GEMINI_MODEL_NAME
+LLM_PROVIDER = config.LLM_PROVIDER
 LOG_LEVEL = config.LOG_LEVEL
 SQLALCHEMY_DATABASE_URI = config.SQLALCHEMY_DATABASE_URI
-
-# Exportando variáveis do banco de dados para compatibilidade
-DB_SERVER = config.DB_SERVER
-DB_DATABASE = config.DB_DATABASE
-DB_USER = config.DB_USER
-DB_PASSWORD = config.DB_PASSWORD
-DB_PORT = config.DB_PORT
-DB_DRIVER = config.DB_DRIVER
-DB_TRUST_SERVER_CERTIFICATE = config.DB_TRUST_SERVER_CERTIFICATE
-DB_ENCRYPT = config.DB_ENCRYPT

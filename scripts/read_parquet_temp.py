@@ -1,7 +1,9 @@
 import pandas as pd
 import os
 
-parquet_file = os.path.join("U:\\Meu Drive\\Caçula\\Langchain\\Agent_BI\\data\\parquet_cleaned", "admatao.parquet")
+parquet_file = os.path.join(
+    os.path.dirname(__file__), "..", "data", "parquet", "Filial_Madureira.parquet"
+)
 
 try:
     df = pd.read_parquet(parquet_file)

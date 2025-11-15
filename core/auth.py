@@ -2,17 +2,25 @@
 # Em vez disso, utilizamos funções de hash seguras (como bcrypt, implementado em sql_server_auth_db.py)
 # para converter as senhas em um formato ilegível e irreversível. Isso protege as informações dos usuários
 # mesmo em caso de violação de dados, pois apenas os hashes são armazenados, não as senhas originais.
+import os
 import streamlit as st
 import time
 import logging
-from core.database import sql_server_auth_db as auth_db
+
+# Escolhe o adapter de autenticação: SQL Server (legacy) ou Parquet
+db_enabled = bool(
+    os.getenv("DATABASE_URI") or (os.getenv("DB_SERVER") and os.getenv("DB_DRIVER"))
+)
+if db_enabled:
+    from core.database import sql_server_auth_db as auth_db
+else:
+    from core.database import parquet_auth_db as auth_db
 
 audit_logger = logging.getLogger("audit")
 
-# Inicializar banco de usuários ao iniciar app
-if "db_inicializado" not in st.session_state:
-    auth_db.init_db()
-    st.session_state["db_inicializado"] = True
+# Nota: não inicializamos o DB no momento do import para evitar efeitos colaterais
+# durante testes ou importações em CI. A inicialização ocorre de forma lazy dentro
+# do fluxo de `login()` quando necessário.
 
 
 # --- Login integrado ao backend SQLite ---
@@ -30,24 +38,63 @@ def login():
             """,
             unsafe_allow_html=True,
         )
-        
+
         with st.form("login_form"):
             username = st.text_input("Usuário", placeholder="Digite seu usuário")
-            password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
-            login_btn = st.form_submit_button("Entrar", use_container_width=True, type="primary")
+            password = st.text_input(
+                "Senha", type="password", placeholder="Digite sua senha"
+            )
+            login_btn = st.form_submit_button(
+                "Entrar", use_container_width=True, type="primary"
+            )
 
             if login_btn:
+                # Inicialização lazy do store de usuários (compatível com Parquet).
+                if "db_inicializado" not in st.session_state:
+                    try:
+                        auth_db.init_db()
+                    except AttributeError:
+                        if hasattr(auth_db, "init_store"):
+                            auth_db.init_store()
+                    st.session_state["db_inicializado"] = True
+
                 # Bypass de autenticação para desenvolvimento
-                if username == 'admin' and password == 'bypass':
+                if username == "admin" and password == "bypass":
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = "admin"
                     st.session_state["role"] = "admin"
                     st.session_state["ultimo_login"] = time.time()
-                    audit_logger.info(f"Usuário admin logado com sucesso (bypass). Papel: admin")
-                    st.success(f"Bem-vindo, admin! Acesso de desenvolvedor concedido.")
-                    time.sleep(1) # Pausa para o usuário ler a mensagem
+                    audit_logger.info(
+                        "Usuário admin logado com sucesso (bypass). Papel: admin"
+                    )
+                    st.success("Bem-vindo, admin! Acesso de desenvolvedor concedido.")
+                    time.sleep(1)  # Pausa para o usuário ler a mensagem
                     st.rerun()
                     return
+
+                # Se o DB não estiver habilitado (por design do ambiente), não tentamos conectar
+                if not db_enabled:
+                    # Se estiver em modo demo, permite login genérico; caso contrário informa o usuário
+                    demo_mode = str(os.getenv("DEMO_MODE", "False")).lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                    )
+                    if demo_mode:
+                        st.session_state["authenticated"] = True
+                        st.session_state["username"] = username
+                        st.session_state["role"] = "demo"
+                        st.session_state["ultimo_login"] = time.time()
+                        audit_logger.info(f"Usuário {username} logado em modo demo.")
+                        st.success("Modo demo: acesso concedido.")
+                        time.sleep(1)
+                        st.rerun()
+                        return
+                    else:
+                        st.error(
+                            "Autenticação por banco de dados desativada. Ative `DEMO_MODE` ou configure uma fonte de usuários."
+                        )
+                        return
 
                 role, erro = auth_db.autenticar_usuario(username, password)
                 if role:
@@ -55,12 +102,16 @@ def login():
                     st.session_state["username"] = username
                     st.session_state["role"] = role
                     st.session_state["ultimo_login"] = time.time()
-                    audit_logger.info(f"Usuário {username} logado com sucesso. Papel: {role}")
+                    audit_logger.info(
+                        f"Usuário {username} logado com sucesso. Papel: {role}"
+                    )
                     st.success(f"Bem-vindo, {username}! Redirecionando...")
                     time.sleep(1)
                     st.rerun()
                 else:
-                    audit_logger.warning(f"Tentativa de login falha para o usuário: {username}. Erro: {erro or 'Usuário ou senha inválidos.'}")
+                    audit_logger.warning(
+                        f"Tentativa de login falha para o usuário: {username}. Erro: {erro or 'Usuário ou senha inválidos.'}"
+                    )
                     if erro and "bloqueado" in erro:
                         st.error(f"{erro} Contate o administrador.")
                     elif erro and "Tentativas restantes" in erro:

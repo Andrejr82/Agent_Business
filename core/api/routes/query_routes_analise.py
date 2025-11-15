@@ -3,7 +3,6 @@ import re
 
 from flask import Blueprint, jsonify, request
 
-from core.agents.product_agent import ProductAgent
 from core.utils.db_utils import prepare_chart_data
 
 """

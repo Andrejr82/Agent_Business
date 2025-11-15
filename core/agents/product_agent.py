@@ -1,15 +1,13 @@
 import logging
 import re
-import sys # Adicionado para depuração
-import ast # Adicionado para converter string para dicionário
-from datetime import datetime, timedelta
-import pandas as pd # Importar pandas
+import pandas as pd  # Importar pandas
 
 from core.utils.db_utils import get_table_df
 
 
 import json
 from core.agents.caculinha_bi_agent import initialize_agent_for_session
+
 
 class ProductAgent:
     """
@@ -23,43 +21,56 @@ class ProductAgent:
         self.catalog = self._load_catalog()
         # Inicializa o agente LLM que será usado para raciocinar sobre os dados
         self.llm_agent = initialize_agent_for_session()
-        self.logger.info("ProductAgent inicializado com o catálogo de dados e agente LLM.")
+        self.logger.info(
+            "ProductAgent inicializado com o catálogo de dados e agente LLM."
+        )
 
     def _load_catalog(self):
         """Carrega o catálogo de dados enriquecido."""
         catalog_path = "data/CATALOGO_PARA_EDICAO.json"
         try:
-            with open(catalog_path, 'r', encoding='utf-8') as f:
+            with open(catalog_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except FileNotFoundError:
-            self.logger.error(f"Arquivo de catálogo não encontrado em {catalog_path}. O agente pode não funcionar corretamente.")
+            self.logger.error(
+                f"Arquivo de catálogo não encontrado em {catalog_path}. O agente pode não funcionar corretamente."
+            )
             return []
         except json.JSONDecodeError:
-            self.logger.error(f"Erro ao decodificar o JSON do catálogo em {catalog_path}.")
+            self.logger.error(
+                f"Erro ao decodificar o JSON do catálogo em {catalog_path}."
+            )
             return []
 
     def search_products(self, query, limit=10):
         self.logger.info(f'Iniciando busca de produtos para a query: "{query}"')
 
         prompt_for_llm = self._build_prompt_for_filter_extraction(query)
-        
+
         llm_response_raw = self.llm_agent.process_query(prompt_for_llm)
-        
-        llm_response_obj = llm_response_raw.get('output', llm_response_raw)
+
+        llm_response_obj = llm_response_raw.get("output", llm_response_raw)
 
         self.logger.info(f"Resposta bruta do LLM: {llm_response_obj}")
 
         if isinstance(llm_response_obj, str):
             try:
-                json_match = re.search(r'```json\n(.*?)```', llm_response_obj, re.DOTALL)
+                json_match = re.search(
+                    r"```json\n(.*?)```", llm_response_obj, re.DOTALL
+                )
                 if json_match:
                     json_str = json_match.group(1).strip()
                 else:
                     json_str = llm_response_obj.strip()
                 extracted_filters = json.loads(json_str)
             except json.JSONDecodeError as e:
-                self.logger.error(f"Falha ao decodificar JSON da resposta do LLM: '{llm_response_obj}'. Erro: {e}")
-                return {"success": False, "message": "Não consegui entender os critérios para a busca."}
+                self.logger.error(
+                    f"Falha ao decodificar JSON da resposta do LLM: '{llm_response_obj}'. Erro: {e}"
+                )
+                return {
+                    "success": False,
+                    "message": "Não consegui entender os critérios para a busca.",
+                }
         else:
             extracted_filters = llm_response_obj
 
@@ -70,7 +81,10 @@ class ProductAgent:
 
         df = get_table_df(target_file.replace(".parquet", ""))
         if df is None:
-            return {"success": False, "message": f"Arquivo de dados {target_file} não encontrado."}
+            return {
+                "success": False,
+                "message": f"Arquivo de dados {target_file} não encontrado.",
+            }
 
         results = df
         if filters:
@@ -78,28 +92,59 @@ class ProductAgent:
                 col, op, val = f.get("column"), f.get("operator"), f.get("value")
                 if col in results.columns:
                     try:
-                        if op != 'contains':
-                            results[col] = pd.to_numeric(results[col], errors='coerce')
+                        if op != "contains":
+                            results[col] = pd.to_numeric(results[col], errors="coerce")
                             val = pd.to_numeric(val)
-                        
-                        if op == '>': results = results[results[col] > val]
-                        elif op == '<': results = results[results[col] < val]
-                        elif op == '==': results = results[results[col] == val]
-                        elif op == '!=': results = results[results[col] != val]
-                        elif op == 'contains': results = results[results[col].astype(str).str.contains(str(val), case=False, na=False)]
+
+                        if op == ">":
+                            results = results[results[col] > val]
+                        elif op == "<":
+                            results = results[results[col] < val]
+                        elif op == "==":
+                            results = results[results[col] == val]
+                        elif op == "!=":
+                            results = results[results[col] != val]
+                        elif op == "contains":
+                            results = results[
+                                results[col]
+                                .astype(str)
+                                .str.contains(str(val), case=False, na=False)
+                            ]
                     except (ValueError, TypeError) as e:
-                        self.logger.error(f"Erro ao aplicar filtro na coluna '{col}': {e}")
-                        results = results[results[col].astype(str).str.contains(str(val), case=False, na=False)]
+                        self.logger.error(
+                            f"Erro ao aplicar filtro na coluna '{col}': {e}"
+                        )
+                        results = results[
+                            results[col]
+                            .astype(str)
+                            .str.contains(str(val), case=False, na=False)
+                        ]
                 else:
                     self.logger.warning(f"Coluna '{col}' não encontrada.")
 
         if results.empty:
-            return {"success": False, "message": "Nenhum produto encontrado.", "data": []}
+            return {
+                "success": False,
+                "message": "Nenhum produto encontrado.",
+                "data": [],
+            }
 
         data = results.head(limit).to_dict(orient="records")
-        column_descriptions = next((item.get("column_descriptions", {}) for item in self.catalog if item.get("file_name") == target_file), {})
+        column_descriptions = next(
+            (
+                item.get("column_descriptions", {})
+                for item in self.catalog
+                if item.get("file_name") == target_file
+            ),
+            {},
+        )
 
-        return {"success": True, "data": data, "total_found": len(results), "column_descriptions": column_descriptions}
+        return {
+            "success": True,
+            "data": data,
+            "total_found": len(results),
+            "column_descriptions": column_descriptions,
+        }
 
     def _build_prompt_for_filter_extraction(self, query):
         """Constrói o prompt para o LLM extrair filtros da query do usuário."""
@@ -167,31 +212,31 @@ class ProductAgent:
         [RESPOSTA JSON]
         """
         return prompt_template.format(
-            catalog=json.dumps(self.catalog, indent=2, ensure_ascii=False),
-            query=query
+            catalog=json.dumps(self.catalog, indent=2, ensure_ascii=False), query=query
         )
 
     def _simulate_llm_filter_extraction(self, query):
         """Função de simulação para demonstrar a extração de filtros. Substituir por uma chamada real ao LLM."""
-        self.logger.warning("Usando extração de filtros simulada. Substituir por chamada real ao LLM.")
+        self.logger.warning(
+            "Usando extração de filtros simulada. Substituir por chamada real ao LLM."
+        )
         if "brinquedos" in query.lower():
             return {
                 "target_file": "ADMAT.parquet",
-                "filters": {"CATEGORIA": "brinquedos"}
+                "filters": {"CATEGORIA": "brinquedos"},
             }
         if "preço maior que 100" in query.lower():
-             return {
-                "target_file": "ADMAT.parquet",
-                "filters": {"PRECO_38PERCENT": "> 100"} # A lógica de aplicação precisaria tratar '>'
-            }
-        # Simulação de busca por nome
-        match = re.search(r'produtos com nome (\w+)', query, re.IGNORECASE)
-        if match:
-            product_name = match.group(1)
             return {
                 "target_file": "ADMAT.parquet",
-                "filters": {"NOME": product_name}
+                "filters": {
+                    "PRECO_38PERCENT": "> 100"
+                },  # A lógica de aplicação precisaria tratar '>'
             }
+        # Simulação de busca por nome
+        match = re.search(r"produtos com nome (\w+)", query, re.IGNORECASE)
+        if match:
+            product_name = match.group(1)
+            return {"target_file": "ADMAT.parquet", "filters": {"NOME": product_name}}
         return {"target_file": "ADMAT.parquet", "filters": {}}
 
     def get_product_details(self, product_code):
@@ -199,9 +244,14 @@ class ProductAgent:
         filters = {"CÓDIGO": product_code}
         df = get_table_df("ADMAT", filters=filters)
         if df is None or df.empty:
-            self.logger.warning(f"Produto com código {product_code} não encontrado ou arquivo Parquet ausente.")
-            return {"success": False, "message": "Produto não encontrado ou arquivo Parquet ausente"}
-        
+            self.logger.warning(
+                f"Produto com código {product_code} não encontrado ou arquivo Parquet ausente."
+            )
+            return {
+                "success": False,
+                "message": "Produto não encontrado ou arquivo Parquet ausente",
+            }
+
         prod = df.iloc[0][
             [
                 "CÓDIGO",
@@ -220,7 +270,9 @@ class ProductAgent:
             "categoria": prod["CATEGORIA"],
             "grupo": prod["GRUPO"],
         }
-        self.logger.info(f"Detalhes do produto {product_code} encontrados: {product['nome']}")
+        self.logger.info(
+            f"Detalhes do produto {product_code} encontrados: {product['nome']}"
+        )
         return {"success": True, "product": product}
 
     def get_columns_info(self):
@@ -255,25 +307,32 @@ class ProductAgent:
 
     def get_sales_history(self, product_code):
         self.logger.info(f"Buscando histórico de vendas para o produto: {product_code}")
-        
+
         df_admat = get_table_df("ADMAT")
         if df_admat is None or df_admat.empty:
-            self.logger.warning("ADMAT.parquet não encontrado ou vazio. Não é possível gerar histórico de vendas.")
+            self.logger.warning(
+                "ADMAT.parquet não encontrado ou vazio. Não é possível gerar histórico de vendas."
+            )
             return {"success": False, "message": "Dados de vendas não disponíveis."}
 
         # Encontrar a linha do produto
         product_row = df_admat[df_admat["CÓDIGO"] == product_code]
         if product_row.empty:
-            self.logger.warning(f"Produto {product_code} não encontrado em ADMAT.parquet.")
-            return {"success": False, "message": f"Produto {product_code} não encontrado nos dados de vendas."}
-        
+            self.logger.warning(
+                f"Produto {product_code} não encontrado em ADMAT.parquet."
+            )
+            return {
+                "success": False,
+                "message": f"Produto {product_code} não encontrado nos dados de vendas.",
+            }
+
         product_row = product_row.iloc[0]
 
         sales_data = []
         # Coletar dados de vendas mensais (assumindo colunas de data)
         # Ex: '2023-05-01 00:00:00', '2023-06-01 00:00:00', etc.
         # E 'VENDA 30D' ou 'VEND. QTD 30D'
-        
+
         # Tentativa de coletar dados de vendas mensais
         for col in df_admat.columns:
             try:
@@ -281,18 +340,34 @@ class ProductAgent:
                 date_obj = pd.to_datetime(col)
                 # Verifica se é uma coluna de mês/ano e se o valor não é nulo
                 if not pd.isna(product_row[col]):
-                    sales_data.append({"date": date_obj.strftime("%Y-%m"), "quantity": product_row[col]})
+                    sales_data.append(
+                        {
+                            "date": date_obj.strftime("%Y-%m"),
+                            "quantity": product_row[col],
+                        }
+                    )
             except ValueError:
-                continue # Não é uma coluna de data
-        
+                continue  # Não é uma coluna de data
+
         # Adicionar VENDA 30D se existir e não for nulo
         if "VENDA 30D" in product_row and not pd.isna(product_row["VENDA 30D"]):
-            sales_data.append({"date": "Últimos 30 Dias", "quantity": product_row["VENDA 30D"]})
-        elif "VEND. QTD 30D" in product_row and not pd.isna(product_row["VEND. QTD 30D"]):
-            sales_data.append({"date": "Últimos 30 Dias", "quantity": product_row["VEND. QTD 30D"]})
+            sales_data.append(
+                {"date": "Últimos 30 Dias", "quantity": product_row["VENDA 30D"]}
+            )
+        elif "VEND. QTD 30D" in product_row and not pd.isna(
+            product_row["VEND. QTD 30D"]
+        ):
+            sales_data.append(
+                {"date": "Últimos 30 Dias", "quantity": product_row["VEND. QTD 30D"]}
+            )
 
         if not sales_data:
-            self.logger.warning(f"Nenhum dado de vendas encontrado para o produto {product_code} em ADMAT.parquet.")
-            return {"success": False, "message": f"Nenhum dado de vendas encontrado para o produto {product_code}."}
+            self.logger.warning(
+                f"Nenhum dado de vendas encontrado para o produto {product_code} em ADMAT.parquet."
+            )
+            return {
+                "success": False,
+                "message": f"Nenhum dado de vendas encontrado para o produto {product_code}.",
+            }
 
         return {"success": True, "sales_history": sales_data}

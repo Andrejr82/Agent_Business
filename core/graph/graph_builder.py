@@ -6,8 +6,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from core.agent_state import AgentState
-from core.agents.caculinha_bi_agent import (bi_tools,
-                                            caculinha_bi_agent_runnable)
+from core.agents.caculinha_bi_agent import bi_tools, caculinha_bi_agent_runnable
 from core.agents.supervisor import RouteDecision, supervisor_router_runnable
 from core.tools.chart_tools import chart_tools
 
@@ -115,20 +114,14 @@ def build_graph():
     workflow.add_node("bi_tools", bi_tool_node)
     workflow.add_node("chart_tools", chart_tool_node)
     workflow.add_node("process_bi_tool_output", process_bi_tool_output_func)
-    workflow.add_node(
-        "process_chart_tool_output",
-        process_chart_tool_output_func
-    )
+    workflow.add_node("process_chart_tool_output", process_chart_tool_output_func)
 
     workflow.set_entry_point("supervisor")
 
     workflow.add_conditional_edges(
         "supervisor",
         route_from_supervisor,
-        {
-            "caculinha_bi_agent": "caculinha_bi_agent",
-            "__end__": END
-        },
+        {"caculinha_bi_agent": "caculinha_bi_agent", "__end__": END},
     )
     workflow.add_conditional_edges(
         "caculinha_bi_agent",

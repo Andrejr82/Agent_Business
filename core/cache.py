@@ -2,6 +2,7 @@
 import time
 from typing import Dict, Any
 
+
 class Cache:
     """
     A simple in-memory cache with a time-to-live (TTL) for each entry.

@@ -1,5 +1,4 @@
 import logging
-import re # Keep re for now, might be used elsewhere, but not for _convert_to_sql
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -44,7 +43,9 @@ class BaseAgent:
         if self.node_client:
             logger.info("Usando NodeMCPClient para processar a consulta SQL.")
             # Assuming 'query' is already a SQL query and no params are needed for this path
-            return self._process_query_with_node_client(sql_query=query, query_params=None)
+            return self._process_query_with_node_client(
+                sql_query=query, query_params=None
+            )
         logger.error(
             "Nenhum método de processamento disponível. Não é possível responder."
         )
@@ -54,7 +55,9 @@ class BaseAgent:
             "source": "no_processing_method",
         }
 
-    def _process_query_with_node_client(self, sql_query: str, query_params: list = None):
+    def _process_query_with_node_client(
+        self, sql_query: str, query_params: list = None
+    ):
         """Processa uma consulta SQL usando o NodeMCPClient."""
         try:
             logger.info(

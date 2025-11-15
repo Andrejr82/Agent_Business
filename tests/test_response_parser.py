@@ -15,21 +15,18 @@ logger = logging.getLogger(__name__)
 def test_parse_chart_response_success():
     """Testa o parsing de uma resposta com sucesso de gráfico."""
     # Criar figura Plotly simples
-    fig = go.Figure(
-        data=[go.Scatter(x=[1, 2, 3], y=[4, 5, 6])]
-    )
+    fig = go.Figure(data=[go.Scatter(x=[1, 2, 3], y=[4, 5, 6])])
     chart_json = fig.to_json()
 
     # Simular resposta de ferramenta de gráfico
-    response = json.dumps({
-        "status": "success",
-        "chart_type": "bar",
-        "chart_data": chart_json,
-        "summary": {
-            "total": 15,
-            "media": 5
+    response = json.dumps(
+        {
+            "status": "success",
+            "chart_type": "bar",
+            "chart_data": chart_json,
+            "summary": {"total": 15, "media": 5},
         }
-    })
+    )
 
     response_type, processed = parse_agent_response(response)
 
@@ -41,16 +38,15 @@ def test_parse_chart_response_success():
 
 def test_parse_chart_response_error():
     """Testa o parsing de uma resposta com erro de gráfico."""
-    response = json.dumps({
-        "status": "error",
-        "message": "Produto não encontrado"
-    })
+    response = json.dumps({"status": "error", "message": "Produto não encontrado"})
 
     response_type, processed = parse_agent_response(response)
 
     assert response_type == "text"
-    assert "erro" in processed["output"].lower() or \
-           "Produto não encontrado" in processed["output"]
+    assert (
+        "erro" in processed["output"].lower()
+        or "Produto não encontrado" in processed["output"]
+    )
 
 
 def test_parse_text_response():

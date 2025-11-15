@@ -4,7 +4,6 @@ import os
 import re
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 import networkx as nx
 
@@ -397,7 +396,7 @@ class MelhoradorCoesao:
             tipo_sugestao = sugestao["tipo_sugestao"]
             acao = sugestao["acao"]
 
-            print(f"\nSugestão para melhorar coesão:")
+            print("\nSugestão para melhorar coesão:")
             print(f"  Módulo isolado: {modulo_isolado}")
             print(f"  Módulo central: {modulo_central}")
             print(f"  Tipo: {tipo_sugestao}")
@@ -446,7 +445,7 @@ class MelhoradorCoesao:
                             f.writelines(conteudo)
 
                         logger.info(f"Importação adicionada ao módulo {modulo_isolado}")
-                        print(f"  ✓ Importação adicionada com sucesso")
+                        print("  ✓ Importação adicionada com sucesso")
 
                     elif tipo_sugestao == "refatoracao":
                         # Extrair funções e classes do módulo isolado
@@ -507,7 +506,7 @@ import {modulo_central_nome}
                         logger.info(
                             f"Refatoração aplicada: {modulo_isolado} -> {modulo_central}"
                         )
-                        print(f"  ✓ Refatoração aplicada com sucesso")
+                        print("  ✓ Refatoração aplicada com sucesso")
 
                     sugestoes_aplicadas.append(sugestao)
 

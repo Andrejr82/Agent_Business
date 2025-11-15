@@ -22,7 +22,7 @@ def get_data_manager() -> DataSourceManager:
     return _data_manager_instance
 ```
 
-#### 2. **Timeout da API OpenAI**
+#### 2. **Timeout da API LLM**
 - **Status**: ✅ RESOLVIDO
 - **Causa**: LLM levando mais de 30 segundos para responder
 - **Solução Implementada**:
@@ -30,7 +30,6 @@ def get_data_manager() -> DataSourceManager:
   - Implementado retry automático com 3 tentativas
   - Backoff exponencial entre tentativas (2s, 4s, 8s)
   - UX melhorada com mensagem clara no Streamlit
-- **Arquivo**: `core/llm_adapter.py`
 
 #### 3. **Gráficos não renderizados no Streamlit**
 - **Status**: ✅ RESOLVIDO
@@ -102,7 +101,7 @@ tests/test_streamlit_rendering.py::TestResponseParserIntegration::test_parse_cha
    └─ Roteia para ToolAgent
    ↓
 5. TOOL_AGENT
-   ├─ LLM (OpenAI) com retry automático (3x)
+   ├─ LLM (Gemini) com retry automático (3x)
    ├─ Detecta requisição de gráfico
    ├─ Seleciona: gerar_grafico_vendas_mensais_produto()
    └─ Executa com: codigo_produto=59294

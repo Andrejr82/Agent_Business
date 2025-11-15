@@ -31,8 +31,7 @@ except ImportError:
 
 # --- Lógica do Servidor Web (deveria ser movida para um módulo próprio) ---
 try:
-    from flask import (Flask, redirect, render_template, request, session,
-                       url_for)
+    from flask import Flask, redirect, render_template, request, session, url_for
 
     FLASK_AVAILABLE = True
 except ImportError:

@@ -3,6 +3,7 @@ import base64
 import io
 import plotly.express as px
 
+
 # Função para exportar gráficos
 def get_image_download_link(fig, filename, text):
     """Gera um link para download da figura como imagem PNG"""
@@ -24,7 +25,9 @@ def get_image_download_link(fig, filename, text):
         html_bytes = buf.getvalue().encode()
         b64 = base64.b64encode(html_bytes).decode()
         href = f'<a href="data:text/html;base64,{b64}" download="{filename}.html">{text} (HTML)</a>'
-        st.warning("Pacote 'kaleido' não encontrado. Exportando como HTML em vez de PNG. Para exportar como PNG, instale o pacote com: pip install kaleido")
+        st.warning(
+            "Pacote 'kaleido' não encontrado. Exportando como HTML em vez de PNG. Para exportar como PNG, instale o pacote com: pip install kaleido"
+        )
         return href
 
 

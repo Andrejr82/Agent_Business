@@ -2,16 +2,18 @@
 
 ## 🎯 Opções de Integração
 
-### 1. **Integração com OpenAI GPT** (Mais Fácil)
+### 1. **Integração com Gemini GPT** (Mais Fácil)
 ```python
 # Exemplo de uso
-import openai
+import google.generativeai as genai
 
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "Você é um assistente de BI especializado em análise de dados."},
-        {"role": "user", "content": "Quantos produtos vendi este mês?"}
+genai.configure(api_key="YOUR_API_KEY")
+model = genai.GenerativeModel('gemini-pro')
+
+response = model.generate_content(
+    contents=[
+        {"role": "user", "parts": ["Você é um assistente de BI especializado em análise de dados."]},
+        {"role": "user", "parts": ["Quantos produtos vendi este mês?"]}
     ]
 )
 ```
@@ -25,7 +27,7 @@ response = openai.ChatCompletion.create(
 **Configuração:**
 ```bash
 # Adicionar no .env
-OPENAI_API_KEY=sua_chave_aqui
+GEMINI_API_KEY=sua_chave_aqui
 ```
 
 ---
@@ -91,7 +93,7 @@ def process_question(question):
 ### **Passo 2: Configurar Credenciais**
 ```bash
 # .env
-OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=sk-...
 SQLSERVER_CONNECTION_STRING=...
 ```
 

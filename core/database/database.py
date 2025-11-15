@@ -16,18 +16,18 @@ class DatabaseConnectionManager:
     Gerenciador centralizado de conexões com o SQL Server.
     Implementa pool de conexões com recuperação automática de erros.
     """
-    
+
     _instance = None
     _engine = None
     _session_factory = None
-    
+
     def __new__(cls):
         """Implementa singleton para garantir apenas uma instância."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialize()
         return cls._instance
-    
+
     def _initialize(self):
         """Inicializa o engine e session factory."""
         try:
@@ -35,7 +35,7 @@ class DatabaseConnectionManager:
             uri = config.SQLALCHEMY_DATABASE_URI
 
             logger.info("Inicializando DatabaseConnectionManager...")
-            logger.debug("Usando URI: %s@***", uri.split('@')[0])
+            logger.debug("Usando URI: %s@***", uri.split("@")[0])
 
             # Criar engine com pool configurado
             self._engine = create_engine(
@@ -45,7 +45,7 @@ class DatabaseConnectionManager:
                 pool_pre_ping=True,
                 pool_recycle=3600,
                 echo=False,
-                isolation_level="READ_COMMITTED"
+                isolation_level="READ_COMMITTED",
             )
 
             # Configurar listener para tentar recuperar conexões perdidas
@@ -60,30 +60,26 @@ class DatabaseConnectionManager:
             # Criar session factory
             self._session_factory = sessionmaker(bind=self._engine)
 
-            logger.info(
-                "DatabaseConnectionManager inicializado com sucesso"
-            )
+            logger.info("DatabaseConnectionManager inicializado com sucesso")
 
         except (SQLAlchemyError, OSError) as exc:
             logger.error(
-                "Erro ao inicializar DatabaseConnectionManager: %s",
-                exc,
-                exc_info=True
+                "Erro ao inicializar DatabaseConnectionManager: %s", exc, exc_info=True
             )
             raise
-    
+
     def get_engine(self):
         """Retorna o engine SQLAlchemy."""
         if self._engine is None:
             self._initialize()
         return self._engine
-    
+
     def get_session(self) -> Session:
         """Retorna uma nova session."""
         if self._session_factory is None:
             self._initialize()
         return self._session_factory()
-    
+
     @contextmanager
     def get_connection(self):
         """
@@ -110,18 +106,14 @@ class DatabaseConnectionManager:
             raise
 
         except Exception as exc:
-            logger.error(
-                "Erro inesperado ao obter conexão: %s",
-                exc,
-                exc_info=True
-            )
+            logger.error("Erro inesperado ao obter conexão: %s", exc, exc_info=True)
             raise
 
         finally:
             if conn is not None:
                 conn.close()
                 logger.debug("Conexão retornada ao pool")
-    
+
     @contextmanager
     def get_session_context(self):
         """
@@ -170,11 +162,7 @@ class DatabaseConnectionManager:
             logger.error(msg)
             return False, msg
 
-    def execute_query(
-        self,
-        query: str,
-        params: Optional[Dict[str, Any]] = None
-    ):
+    def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None):
         """
         Executa uma consulta e retorna os resultados.
 
@@ -195,9 +183,7 @@ class DatabaseConnectionManager:
             raise
 
     def execute_query_one(
-        self,
-        query: str,
-        params: Optional[Dict[str, Any]] = None
+        self, query: str, params: Optional[Dict[str, Any]] = None
     ) -> Optional[Any]:
         """
         Executa uma consulta e retorna o primeiro resultado.

@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import sys
-from pathlib import Path
 
 # Adiciona o diretório raiz ao path para importações
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

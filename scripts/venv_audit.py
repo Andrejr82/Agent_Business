@@ -1,4 +1,7 @@
-import json, subprocess, networkx as nx, plotly.graph_objects as go
+import json
+import subprocess
+import networkx as nx
+import plotly.graph_objects as go
 import pandas as pd
 
 # Captura pacotes instalados
@@ -31,10 +34,7 @@ for edge in G.edges():
     edge_y += [y0, y1, None]
 
 edge_trace = go.Scatter(
-    x=edge_x, y=edge_y,
-    line=dict(width=1, color='#888'),
-    hoverinfo='none',
-    mode='lines'
+    x=edge_x, y=edge_y, line=dict(width=1, color="#888"), hoverinfo="none", mode="lines"
 )
 
 node_x, node_y, node_text, node_color = [], [], [], []
@@ -42,18 +42,19 @@ for node in G.nodes():
     x, y = pos[node]
     node_x.append(x)
     node_y.append(y)
-    version = G.nodes[node].get('version', 'desconhecida')  # correção aqui
+    version = G.nodes[node].get("version", "desconhecida")  # correção aqui
     node_text.append(f"{node} ({version})")
-    node_color.append('red' if any(node in c for c in conflitos) else 'blue')
+    node_color.append("red" if any(node in c for c in conflitos) else "blue")
 
 
 node_trace = go.Scatter(
-    x=node_x, y=node_y,
-    mode='markers+text',
-    hoverinfo='text',
+    x=node_x,
+    y=node_y,
+    mode="markers+text",
+    hoverinfo="text",
     marker=dict(color=node_color, size=20),
     text=node_text,
-    textposition="top center"
+    textposition="top center",
 )
 
 fig = go.Figure(data=[edge_trace, node_trace])

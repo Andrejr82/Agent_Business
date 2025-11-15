@@ -14,13 +14,11 @@ from typing import Any, Dict, Optional
 
 # Importar a interface
 try:
-    from analise.interfaces.adaptador_mcp_interface import \
-        AdaptadorMCPInterface
+    from analise.interfaces.adaptador_mcp_interface import AdaptadorMCPInterface
 except ImportError:
     # Fallback para importação relativa se o módulo não estiver no path
     try:
-        from ...analise.interfaces.adaptador_mcp_interface import \
-            AdaptadorMCPInterface
+        from ...analise.interfaces.adaptador_mcp_interface import AdaptadorMCPInterface
     except ImportError:
         # Definir uma classe base vazia para não quebrar a herança
         class AdaptadorMCPInterface:
@@ -29,13 +27,15 @@ except ImportError:
 
 # Importar o adaptador SQL Server existente
 try:
-    from core.mcp.sqlserver_adapter import \
-        SQLServerMCPAdapter as OriginalSQLServerMCPAdapter
+    from core.mcp.sqlserver_adapter import (
+        SQLServerMCPAdapter as OriginalSQLServerMCPAdapter,
+    )
 except ImportError:
     # Fallback para importação relativa
     try:
-        from .sqlserver_adapter import \
-            SQLServerMCPAdapter as OriginalSQLServerMCPAdapter
+        from .sqlserver_adapter import (
+            SQLServerMCPAdapter as OriginalSQLServerMCPAdapter,
+        )
     except ImportError:
         # Definir uma classe mock para não quebrar a execução
         class OriginalSQLServerMCPAdapter:
@@ -85,7 +85,7 @@ class SQLServerMCPAdapter(AdaptadorMCPInterface):
 
         # Registra informações sobre a inicialização
         logger.info(
-            f"SQLServerMCPAdapter inicializado com interface AdaptadorMCPInterface"
+            "SQLServerMCPAdapter inicializado com interface AdaptadorMCPInterface"
         )
         logger.info(f"Status de disponibilidade: {self.is_available}")
 

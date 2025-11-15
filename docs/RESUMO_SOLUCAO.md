@@ -26,7 +26,7 @@
 ### Arquivos Modificados:
 ```
 ✏️ core/database/database.py          - Implementou DatabaseConnectionManager
-✏️ core/agents/tool_agent.py          - Alterou import para sql_server_tools
+✏️ core/agents/tool_agent.py          - Alterou import para mcp_parquet_tools
 ✏️ core/utils/db_connection.py        - Já estava correto
 ✏️ SOLUCAO_CONEXAO_BANCO.md           - Preenchido com solução
 ```
@@ -70,9 +70,9 @@ streamlit run streamlit_app.py
 from core.database.database import get_db_manager
 db = get_db_manager()
 
-# Ferramentas consultam SQL Server diretamente
-from core.tools.sql_server_tools import query_database
-result = query_database.invoke({"sql_query": "SELECT ..."})
+# Ferramentas consultam arquivos Parquet diretamente
+from core.tools.mcp_parquet_tools import get_product_data
+result = get_product_data.invoke({"product_code": "123"})
 
 # Pool de conexões otimizado
 # pool_size=10, max_overflow=20, pool_pre_ping=True
@@ -96,44 +96,30 @@ result = query_database.invoke({"sql_query": "SELECT ..."})
 
 ### Exemplo 1: Buscar Produto
 ```python
-from core.tools.sql_server_tools import get_product_by_code
+from core.tools.mcp_parquet_tools import get_product_data
 
-result = get_product_by_code.invoke({
+result = get_product_data.invoke({
     "product_code": "123"
 })
 # Retorna: nome, preço, estoque, fabricante, etc.
 ```
 
-### Exemplo 2: Buscar por Nome
+### Exemplo 2: Buscar Estoque do Produto
 ```python
-from core.tools.sql_server_tools import search_products_by_name
+from core.tools.mcp_parquet_tools import get_product_stock
 
-result = search_products_by_name.invoke({
-    "product_name": "parafuso",
-    "limit": 10
+result = get_product_stock.invoke({
+    "product_id": 123
 })
-# Retorna: 10 produtos com "parafuso" no nome
+# Retorna: ID do produto e estoque
 ```
 
-### Exemplo 3: Listar por Categoria
+### Exemplo 3: Listar Categorias de Produtos
 ```python
-from core.tools.sql_server_tools import get_products_by_category
+from core.tools.mcp_parquet_tools import list_product_categories
 
-result = get_products_by_category.invoke({
-    "category": "Ferragens",
-    "limit": 20
-})
-# Retorna: até 20 produtos da categoria
-```
-
-### Exemplo 4: Query Customizada
-```python
-from core.tools.sql_server_tools import query_database
-
-result = query_database.invoke({
-    "sql_query": "SELECT * FROM dbo.Admat_OPCOM WHERE CATEGORIA = 'Ferragens'"
-})
-# Retorna: dados brutos da query
+result = list_product_categories.invoke({})
+# Retorna: lista de categorias
 ```
 
 ---
@@ -150,8 +136,7 @@ DB_PASSWORD=Cacula@2020
 DB_DRIVER=ODBC Driver 17 for SQL Server
 DB_TRUST_SERVER_CERTIFICATE=yes
 
-# OpenAI
-OPENAI_API_KEY=sk-proj-...
+
 LLM_MODEL_NAME=gpt-4o
 ```
 

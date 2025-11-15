@@ -87,9 +87,7 @@ def process_chat():
 
         user_message = data.get("query", data.get("message", "")).strip()
         if not user_message:
-            raise ValueError(
-                "Mensagem vazia. Por favor, digite uma consulta."
-            )
+            raise ValueError("Mensagem vazia. Por favor, digite uma consulta.")
 
         chat_service = ChatService()
         response = chat_service.process_message(user_message)
@@ -121,9 +119,7 @@ def process_chat():
                     "type": "error",
                     "error": user_error,
                     "details": (
-                        str(e)
-                        if os.getenv("FLASK_ENV") == "development"
-                        else None
+                        str(e) if os.getenv("FLASK_ENV") == "development" else None
                     ),
                     "timestamp": datetime.now().isoformat(),
                 }
@@ -140,38 +136,49 @@ def upload_chat_file():
     """
     try:
         if "file" not in request.files:
-            return jsonify({
-                "success": False,
-                "error": "Arquivo não enviado (campo 'file' ausente)."
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Arquivo não enviado (campo 'file' ausente).",
+                    }
+                ),
+                400,
+            )
         file = request.files["file"]
         if file.filename == "":
-            return jsonify({
-                "success": False,
-                "error": "Nome do arquivo vazio."
-            }), 400
+            return jsonify({"success": False, "error": "Nome do arquivo vazio."}), 400
         filename = file.filename.lower()
         if filename.endswith(".csv"):
             df = pd.read_csv(file)
         elif filename.endswith(".xlsx") or filename.endswith(".xls"):
             df = pd.read_excel(file)
         else:
-            return jsonify({
-                "success": False,
-                "error": "Formato não suportado. Envie CSV ou Excel."
-            }), 400
-        return jsonify({
-            "success": True,
-            "filename": file.filename,
-            "columns": list(df.columns),
-            "shape": list(df.shape),
-        }), 200
-    except Exception as e:
-        logger.error(
-            f"Erro no upload: {str(e)}",
-            exc_info=True
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Formato não suportado. Envie CSV ou Excel.",
+                    }
+                ),
+                400,
+            )
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "filename": file.filename,
+                    "columns": list(df.columns),
+                    "shape": list(df.shape),
+                }
+            ),
+            200,
         )
-        return jsonify({
-            "success": False,
-            "error": f"Erro ao processar arquivo: {str(e)}"
-        }), 500
+    except Exception as e:
+        logger.error(f"Erro no upload: {str(e)}", exc_info=True)
+        return (
+            jsonify(
+                {"success": False, "error": f"Erro ao processar arquivo: {str(e)}"}
+            ),
+            500,
+        )

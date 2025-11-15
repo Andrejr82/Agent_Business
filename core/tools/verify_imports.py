@@ -18,7 +18,7 @@ def check_import(module_name):
 # Lista de módulos para verificar
 modules_to_check = [
     "langchain_core.messages",
-    "langchain_openai",
+
     "langgraph.graph",
     "langchain_community.utilities",
     "sqlalchemy",
