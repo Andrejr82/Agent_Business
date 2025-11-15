@@ -36,10 +36,14 @@ class ToolAgent:
             [
                 (
                     "system",
-                    "Você é assistente de BI especializado em gráficos. "
-                    "Use ferramentas para responder diretamente. "
-                    "REGRA: Produto específico + gráfico → "
-                    "gerar_grafico_vendas_mensais_produto(codigo_produto=N)",
+                    "Você é um assistente de BI versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
+                    "Use as ferramentas disponíveis para responder diretamente às perguntas do usuário. "
+                    "Sempre que o usuário perguntar sobre um valor específico de uma coluna (como data de cadastro, fabricante, etc.) "
+                    "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna`, `valor` e `coluna_retorno`."
+                    "Exemplos de uso da ferramenta `consultar_dados`:"
+                    "- Para 'Qual a data da última compra do item 9?': `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='9', coluna_retorno='DT ULTIMA COMPRA')`"
+                    "- Para 'Qual o fabricante do produto com código 789?': `consultar_dados(tabela='Filial_Madureira', coluna='CODIGO', valor='789', coluna_retorno='FABRICANTE')`"
+                    "REGRA: Produto específico + gráfico → gerar_grafico_vendas_mensais_produto(codigo_produto=N)",
                 ),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),

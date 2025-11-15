@@ -321,22 +321,66 @@ def consultar_dados(
     limite: int = 100,
     coluna: str = None,  # type: ignore
     valor: str = None,  # type: ignore
+    coluna_retorno: str = None, # Novo parâmetro para a coluna a ser retornada
 ) -> Dict[str, Any]:
     """
-    Consulta genérica de dados em qualquer tabela disponível.
-    Útil para queries customizadas.
+    Consulta genérica de dados na tabela 'Filial_Madureira'.
+    Esta tabela contém informações detalhadas sobre produtos, vendas, custos e lucros.
+
+    Colunas disponíveis na tabela 'Filial_Madureira':
+    - 'ITEM' (int): Número identificador do item/produto.
+    - 'CODIGO' (str): Código de barras ou identificador único do produto.
+    - 'DESCRIÇÃO' (str): Descrição detalhada do produto.
+    - 'QTD' (int): Quantidade atual em estoque.
+    - 'VENDA R$' (float): Valor total de venda em Reais.
+    - 'DESC. R$' (float): Valor de desconto em Reais.
+    - 'CUSTO R$' (float): Custo total em Reais.
+    - 'LUCRO R$' (float): Lucro total em Reais.
+    - 'LUCRO TOTAL %' (float): Lucro total em porcentagem.
+    - 'CUSTO UNIT R$' (float): Custo unitário em Reais.
+    - 'VENDA UNIT R$' (float): Valor de venda unitário em Reais.
+    - 'LUCRO UNIT %' (float): Lucro unitário em porcentagem.
+    - 'SALDO' (int): Saldo de estoque.
+    - 'VENDA QTD JAN' (int): Quantidade vendida em Janeiro.
+    - 'VENDA QTD FEV' (int): Quantidade vendida em Fevereiro.
+    - 'VENDA QTD MAR' (int): Quantidade vendida em Março.
+    - 'VENDA QTD ABR' (int): Quantidade vendida em Abril.
+    - 'VENDA QTD MAI' (int): Quantidade vendida em Maio.
+    - 'VENDA QTD JUN' (int): Quantidade vendida em Junho.
+    - 'VENDA QTD JUL' (int): Quantidade vendida em Julho.
+    - 'VENDA QTD AGO' (int): Quantidade vendida em Agosto.
+    - 'VENDA QTD SET' (int): Quantidade vendida em Setembro.
+    - 'VENDA QTD OUT' (int): Quantidade vendida em Outubro.
+    - 'VENDA QTD NOV' (int): Quantidade vendida em Novembro.
+    - 'VENDA QTD DEZ' (int): Quantidade vendida em Dezembro.
+    - 'VLR ESTOQUE VENDA' (float): Valor do estoque para venda.
+    - 'VLR ESTOQUE CUSTO' (float): Valor do estoque ao custo.
+    - 'FABRICANTE' (str): Nome do fabricante do produto.
+    - 'DT CADASTRO' (datetime): Data de cadastro do produto.
+    - 'DT ULTIMA COMPRA' (datetime): Data da última compra do produto.
+    - 'GRUPO' (str): Grupo ou categoria do produto.
+    - 'QTD ULTIMA COMPRA' (int): Quantidade da última compra.
 
     Args:
-        tabela: Nome da tabela (ADMAT, admmatao, master_catalog, etc)
-        limite: Limite de registros a retornar
-        coluna: Nome da coluna para filtrar (opcional)
-        valor: Valor a buscar na coluna (opcional)
+        tabela: Nome da tabela (atualmente apenas 'Filial_Madureira' é suportada para esta ferramenta).
+        limite: Limite de registros a retornar.
+        coluna: Nome da coluna para filtrar (opcional).
+        valor: Valor a buscar na coluna (opcional).
+        coluna_retorno: Nome da coluna cujo valor deve ser retornado para o primeiro registro encontrado (opcional).
+                        Pode ser a mesma coluna usada para filtrar (`coluna`).
 
     Returns:
-        Dados consultados com metadados
+        Dados consultados com metadados. Se `coluna_retorno` for especificado, retorna apenas o valor dessa coluna.
+
+    Exemplo de uso:
+    - Para obter o 'CODIGO' do item com 'ITEM' igual a 1:
+      `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='1', coluna_retorno='CODIGO')`
+    - Para obter o 'ITEM' do item com 'ITEM' igual a 1 (coluna de filtro e retorno são as mesmas):
+      `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='1', coluna_retorno='ITEM')`
     """
     logger.info(
-        f"Consultando {tabela}: coluna={coluna}, " f"valor={valor}, limite={limite}"
+        f"Consultando {tabela}: coluna={coluna}, "
+        f"valor={valor}, limite={limite}, coluna_retorno={coluna_retorno}"
     )
 
     try:
@@ -355,19 +399,31 @@ def consultar_dados(
                 "message": f"Nenhum dado encontrado em {tabela}",
             }
 
-        logger.info(f"Consulta retornou {len(df)} registros")
-
-        response_data = _truncate_df_for_llm(df)
-        return {
-            "status": "success",
-            "tabela": tabela,
-            "filtro_aplicado": (
-                f"{coluna}='{valor}'" if coluna and valor else "nenhum"
-            ),
-            "total_registros": len(df),
-            "colunas": list(df.columns),
-            **response_data,
-        }
+        # Se coluna_retorno for especificado e existir no DataFrame, retorna o valor
+        if coluna_retorno and coluna_retorno in df.columns:
+            return {
+                "status": "success",
+                "tabela": tabela,
+                "filtro_aplicado": (
+                    f"{coluna}='{valor}'" if coluna and valor else "nenhum"
+                ),
+                "coluna_retornada": coluna_retorno,
+                "valor_retornado": df[coluna_retorno].iloc[0],
+            }
+        # Se coluna_retorno não for especificado, ou não existir, retorna o DataFrame completo (truncado)
+        else:
+            logger.info(f"Consulta retornou {len(df)} registros")
+            response_data = _truncate_df_for_llm(df)
+            return {
+                "status": "success",
+                "tabela": tabela,
+                "filtro_aplicado": (
+                    f"{coluna}='{valor}'" if coluna and valor else "nenhum"
+                ),
+                "total_registros": len(df),
+                "colunas": list(df.columns),
+                **response_data,
+            }
 
     except Exception as e:
         logger.error(f"Erro ao consultar dados: {e}", exc_info=True)

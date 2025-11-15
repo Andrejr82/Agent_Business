@@ -43,6 +43,19 @@ class FilialMadureiraDataSource:
             try:
                 self._df_cache = pd.read_parquet(self.file_path)
                 logger.info(f"✓ Dados carregados: {self._df_cache.shape}")
+
+                # Forçar tipos de dados corretos para colunas problemáticas
+                # Colunas que deveriam ser strings
+                for col in ["DESCRIÇÃO", "FABRICANTE"]:
+                    if col in self._df_cache.columns:
+                        self._df_cache[col] = self._df_cache[col].astype(str).replace('nan', pd.NA) # Converte NaN para NA do Pandas
+
+                # Colunas que deveriam ser datetime
+                for col in ["DT CADASTRO", "DT ULTIMA COMPRA"]:
+                    if col in self._df_cache.columns:
+                        # Tenta converter para datetime, coercing erros para NaT (Not a Time)
+                        self._df_cache[col] = pd.to_datetime(self._df_cache[col], errors='coerce')
+
             except Exception as e:
                 logger.error(f"Erro ao carregar dados: {e}")
                 self._df_cache = pd.DataFrame()
@@ -84,9 +97,25 @@ class FilialMadureiraDataSource:
 
             for col, value in filters.items():
                 if col in df.columns:
-                    df = df[df[col] == value]
+                    # Tenta converter o valor para o tipo da coluna
+                    col_dtype = df[col].dtype
+                    try:
+                        if pd.api.types.is_numeric_dtype(col_dtype) and isinstance(value, str):
+                            # Tenta converter a string para o tipo numérico da coluna
+                            converted_value = pd.to_numeric(value, errors='raise')
+                            df = df[df[col] == converted_value]
+                        elif pd.api.types.is_datetime64_any_dtype(col_dtype) and isinstance(value, str):
+                            # Tenta converter a string para o tipo datetime da coluna
+                            converted_value = pd.to_datetime(value, errors='raise')
+                            df = df[df[col] == converted_value]
+                        else:
+                            # Para outros tipos ou falha na conversão, usa o valor original
+                            df = df[df[col] == value]
+                    except (ValueError, TypeError):
+                        # Se a conversão falhar, faz a comparação como string (case-insensitive)
+                        df = df[df[col].astype(str).str.lower() == str(value).lower()]
                 else:
-                    logger.warning(f"Coluna '{col}' não encontrada.")
+                    logger.warning(f"Coluna '{col}' não encontrada para filtragem.")
                     return pd.DataFrame()
 
             if limit:

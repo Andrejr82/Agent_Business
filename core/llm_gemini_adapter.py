@@ -48,14 +48,14 @@ class GeminiLLMAdapter(BaseLLMAdapter):
     def get_completion(
         self,
         messages: List[Dict[str, str]],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: Optional[Dict[str, List[Dict[str, Any]]]] = None, # Alterado aqui
     ) -> Dict[str, Any]:
         """
         Obtém completion da API Gemini com retry automático.
 
         Args:
             messages: Lista de mensagens no formato OpenAI-like
-            tools: Lista opcional de ferramentas no formato OpenAI-like
+            tools: Dicionário opcional de ferramentas no formato Gemini (com 'function_declarations')
 
         Returns:
             Dicionário com resultado ou erro
@@ -67,7 +67,11 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                 def worker():
                     try:
                         gemini_messages = self._convert_messages(messages)
-                        gemini_tools = self._convert_tools(tools) if tools else []
+                        
+                        if tools:
+                            gemini_tools = self._convert_tools(tools)
+                        else:
+                            gemini_tools = []
 
                         model = genai.GenerativeModel(
                             model_name=self.model_name,
@@ -85,26 +89,34 @@ class GeminiLLMAdapter(BaseLLMAdapter):
 
                         self.logger.info("Chamada Gemini concluída.")
 
-                        result = {"content": response.text}
-
+                        tool_calls = []
+                        content = ""
+                        
                         if response.candidates:
                             candidate = response.candidates[0]
                             if candidate.content and candidate.content.parts:
                                 for part in candidate.content.parts:
                                     if part.function_call:
-                                        tool_calls = []
                                         function_call = part.function_call
                                         tool_calls.append({
                                             "id": f"call_{function_call.name}", # Gemini doesn't provide an ID, so we generate one
                                             "function": {
-                                                "arguments": json.dumps(function_call.args),
+                                                "arguments": json.dumps(dict(function_call.args)),
                                                 "name": function_call.name,
                                             },
                                             "type": "function",
                                         })
-                                        result["tool_calls"] = tool_calls
+                                        # Se há tool_call, o conteúdo textual deve ser vazio
+                                        content = "" 
                                         break # Only handle the first function call for now
-
+                                    elif part.text:
+                                        content = part.text
+                                        break # Only handle the first text part for now
+                        
+                        result = {"content": content}
+                        if tool_calls:
+                            result["tool_calls"] = tool_calls
+                        
                         q.put(result)
 
                     except Exception as e:
@@ -217,18 +229,23 @@ class GeminiLLMAdapter(BaseLLMAdapter):
 
         return gemini_messages
 
-    def _convert_tools(self, tools: List[Dict[str, Any]]) -> List[FunctionDeclaration]:
+    def _convert_tools(self, tools_wrapper: Dict[str, List[Dict[str, Any]]]) -> List[FunctionDeclaration]:
         """
-        Converte ferramentas do formato OpenAI-like para Gemini Tool Format.
+        Converte ferramentas do formato OpenAI-like (agora encapsulado em 'function_declarations')
+        para Gemini Tool Format.
         """
         gemini_tools = []
 
-        for tool in tools:
-            function_spec = tool.get("function", {})
+        # Extract the list of function declarations from the wrapper dictionary
+        function_declarations = tools_wrapper.get("function_declarations", [])
+
+        for tool_declaration in function_declarations:
+            # Each tool_declaration is already in the format expected by FunctionDeclaration
+            # e.g., {"name": "tool_name", "description": "...", "parameters": {...}}
             gemini_tool = FunctionDeclaration(
-                name=function_spec.get("name", ""),
-                description=function_spec.get("description", ""),
-                parameters=function_spec.get("parameters", {}),
+                name=tool_declaration.get("name", ""),
+                description=tool_declaration.get("description", ""),
+                parameters=tool_declaration.get("parameters", {}),
             )
             gemini_tools.append(gemini_tool)
 

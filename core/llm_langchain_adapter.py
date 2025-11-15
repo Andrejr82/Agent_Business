@@ -111,22 +111,59 @@ class CustomLangChainLLM(BaseChatModel):
         # Check if tools were bound via bind_tools or passed directly in kwargs
         tools_to_pass = getattr(self, 'tools', None) or kwargs.get("tools")
         if tools_to_pass:
-            # Convert LangChain tools to a generic dictionary format
-            generic_tools = []
+            generic_tools_declarations = []
             for tool in tools_to_pass:
-                if hasattr(tool, 'json_schema'):
-                    generic_tools.append({
-                        "type": "function",
-                        "function": {
+                if hasattr(tool, 'name') and hasattr(tool, 'description') and hasattr(tool, 'args'):
+                    # LangChain's StructuredTool has 'name', 'description', and 'args'
+                    # 'args' is already a dictionary representing the parameters
+                    
+                    # Infer required parameters: those without a default value
+                    required_params = [
+                        param for param, details in tool.args.items() 
+                        if details.get("default") is None and details.get("type") != "null"
+                    ]
+
+                    # Create a copy of tool.args and remove 'default' if it's causing issues
+                    processed_args = {}
+                    for param, details in tool.args.items():
+                        param_details = details.copy()
+                        if "default" in param_details:
+                            del param_details["default"] # Remover a chave 'default'
+                        if "title" in param_details: # Remover a chave 'title'
+                            del param_details["title"]
+                        processed_args[param] = param_details
+
+                    generic_tools_declarations.append(
+                        {
                             "name": tool.name,
                             "description": tool.description,
-                            "parameters": tool.json_schema,
+                            "parameters": {
+                                "type": "object",
+                                "properties": processed_args, # Usar processed_args
+                                "required": required_params,
+                            },
                         }
-                    })
+                    )
+                elif isinstance(tool, dict) and "name" in tool and "description" in tool and "parameters" in tool:
+                    # If it's already a dictionary in the expected function declaration format
+                    generic_tools_declarations.append(tool)
                 else:
-                    # Fallback for other tool types if necessary
-                    generic_tools.append(tool)
-            tools_to_pass = generic_tools
+                    # Fallback for other tool types or if the tool object is not fully formed
+                    # This might need more robust handling depending on actual tool types
+                    print(f"Warning: Unexpected tool format encountered: {type(tool)} - {tool}")
+                    if hasattr(tool, 'name') and hasattr(tool, 'description'):
+                         generic_tools_declarations.append(
+                                {
+                                    "name": tool.name,
+                                    "description": tool.description,
+                                    "parameters": {"type": "object", "properties": {}}, # Empty parameters
+                                }
+                        )
+                    else:
+                        raise ValueError(f"Unsupported tool object: {tool}")
+
+            # Gemini API expects a single list of function declarations under a 'function_declarations' key
+            tools_to_pass = {"function_declarations": generic_tools_declarations}
         else:
             tools_to_pass = None
 
