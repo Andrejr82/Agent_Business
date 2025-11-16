@@ -8,6 +8,7 @@ from langchain_core.messages import (
     BaseMessage,
 )  # Import BaseMessage for type hinting chat_history
 from langchain_core.runnables import RunnableConfig
+from langchain_core.agents import AgentAction, AgentFinish # Importar AgentAction e AgentFinish
 
 from core.llm_base import BaseLLMAdapter
 from core.llm_gemini_adapter import GeminiLLMAdapter
@@ -37,13 +38,17 @@ class ToolAgent:
                 (
                     "system",
                     "Você é um assistente de BI versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
-                    "Use as ferramentas disponíveis para responder diretamente às perguntas do usuário. "
-                    "Sempre que o usuário perguntar sobre um valor específico de uma coluna (como data de cadastro, fabricante, etc.) "
-                    "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna`, `valor` e `coluna_retorno`."
+                    "Sua principal função é usar as ferramentas disponíveis para responder diretamente às perguntas do usuário, sem adicionar comentários desnecessários. "
+                    "Sempre que o usuário perguntar sobre um valor específico de qualquer coluna (como data de cadastro, fabricante, quantidade, etc.) "
+                    "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna` (para o filtro), `valor` (do filtro) e `coluna_retorno` (a coluna cujo valor se deseja obter)."
+                    "É importante que você use `consultar_dados` mesmo que a coluna usada para filtrar seja a mesma que a coluna que se deseja retornar."
+                    "Quando o usuário perguntar sobre as colunas disponíveis, a estrutura dos dados, ou informações gerais sobre o dataset, use a ferramenta `listar_colunas_disponiveis`."
                     "Exemplos de uso da ferramenta `consultar_dados`:"
-                    "- Para 'Qual a data da última compra do item 9?': `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='9', coluna_retorno='DT ULTIMA COMPRA')`"
-                    "- Para 'Qual o fabricante do produto com código 789?': `consultar_dados(tabela='Filial_Madureira', coluna='CODIGO', valor='789', coluna_retorno='FABRICANTE')`"
-                    "REGRA: Produto específico + gráfico → gerar_grafico_vendas_mensais_produto(codigo_produto=N)",
+                    "- Para 'Qual a data da última compra do item 9?': `consultar_dados(coluna='ITEM', valor='9', coluna_retorno='DT ULTIMA COMPRA')`"
+                    "- Para 'Qual o fabricante do produto com código 789?': `consultar_dados(coluna='CODIGO', valor='789', coluna_retorno='FABRICANTE')`"
+                    "- Para 'Qual o ITEM do produto com ITEM 1?': `consultar_dados(coluna='ITEM', valor='1', coluna_retorno='ITEM')`"
+                    "REGRA: Produto específico + gráfico → gerar_grafico_vendas_mensais_produto(codigo_produto=N)"
+                    "IMPORTANTE: Quando uma ferramenta retornar uma resposta, repasse essa resposta DIRETAMENTE ao usuário. Não adicione comentários, resumos ou frases como 'Compreendi.'. Se a ferramenta retornar uma mensagem de erro ou indicar que não encontrou dados, repasse essa mensagem ao usuário."
                 ),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),
@@ -59,6 +64,7 @@ class ToolAgent:
             agent=agent,
             tools=self.tools,
             verbose=True,
+            return_intermediate_steps=True, # Adicionado para obter os passos intermediários
         )
 
     def process_query(
@@ -85,9 +91,29 @@ class ToolAgent:
             # Adicionando log detalhado para depuração
             self.logger.info(f"CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {response}")
 
-            # Parse resposta para detectar gráficos
-            raw_output = response.get("output", "")
-            response_type, processed = parse_agent_response(raw_output)
+            final_output = response.get("output", "Não foi possível gerar uma resposta.")
+
+            # Verificar se há passos intermediários e extrair a saída da ferramenta se aplicável
+            if "intermediate_steps" in response and response["intermediate_steps"]:
+                for step in reversed(response["intermediate_steps"]):
+                    # intermediate_steps é uma lista de tuplas (AgentAction, observation)
+                    if isinstance(step, tuple) and len(step) == 2:
+                        action, observation = step
+                        # Se a ação foi uma chamada de ferramenta e a observação é uma string
+                        if isinstance(action, AgentAction) and isinstance(observation, str):
+                            # Verificar se a ferramenta consultada foi 'consultar_dados'
+                            if action.tool == "consultar_dados":
+                                final_output = observation
+                                self.logger.info(f"Usando saída direta da ferramenta consultar_dados: {final_output}")
+                                break # Sair do loop após encontrar a saída da ferramenta
+                            # Para outras ferramentas que retornam string e queremos repassar diretamente
+                            # elif isinstance(observation, str):
+                            #     final_output = observation
+                            #     self.logger.info(f"Usando saída direta da ferramenta: {final_output}")
+                            #     break
+            
+            # Parse resposta para detectar gráficos (ainda pode ser relevante se o LLM gerar um gráfico)
+            response_type, processed = parse_agent_response(final_output)
 
             self.logger.info(f"Resposta processada como tipo: {response_type}")
 
@@ -101,7 +127,7 @@ class ToolAgent:
             return {
                 "type": response_type,
                 "output": processed.get(
-                    "output", "Não foi possível gerar uma resposta."
+                    "output", final_output # Fallback para final_output se processed.get("output") for None
                 ),
             }
 

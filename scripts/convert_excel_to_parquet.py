@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # Ler com header na linha 2 (depois de metadados)
-df = pd.read_excel("Filial_Madureira.xlsx", header=2)
+df = pd.read_excel("Filial_Madureira.xlsx", header=0)
 
 print(f"Shape original: {df.shape}")
 print(f"Colunas: {list(df.columns)[:10]}...")

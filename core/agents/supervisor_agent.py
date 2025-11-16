@@ -2,14 +2,11 @@
 import logging
 from typing import Dict, Any
 
-from core.llm_gemini_adapter import GeminiLLMAdapter
-from core.agents.tool_agent import ToolAgent
-
 
 class SupervisorAgent:
     """
-    Agente supervisor que roteia a consulta do usuário para o agente
-    especialista apropriado. Detecta intenção de gráficos automaticamente.
+    Agente supervisor simplificado que roteia consultas para o ToolAgent.
+    REMOVIDA importação circular com tool_agent.
     """
 
     CHART_KEYWORDS = [
@@ -57,13 +54,25 @@ class SupervisorAgent:
         "codigo",
     ]
 
-    def __init__(self, gemini_adapter: GeminiLLMAdapter):
+    def __init__(self, gemini_adapter):
         """
-        Inicializa o supervisor e o ToolAgent.
+        Inicializa o supervisor.
+        NOTA: ToolAgent agora é inicializado sob demanda para evitar importação circular.
         """
         self.logger = logging.getLogger(__name__)
-        self.tool_agent = ToolAgent(llm_adapter=gemini_adapter)
-        self.logger.info("SupervisorAgent inicializado com ToolAgent.")
+        self.gemini_adapter = gemini_adapter
+        self._tool_agent = None  # Lazy initialization
+        self.logger.info("SupervisorAgent inicializado.")
+
+    @property
+    def tool_agent(self):
+        """Lazy initialization do ToolAgent para evitar importação circular."""
+        if self._tool_agent is None:
+            # Importação local para evitar circular dependency
+            from core.agents.tool_agent import ToolAgent
+            self._tool_agent = ToolAgent(llm_adapter=self.gemini_adapter)
+            self.logger.info("ToolAgent inicializado (lazy)")
+        return self._tool_agent
 
     def _detect_chart_intent(self, query: str) -> bool:
         """
@@ -93,7 +102,7 @@ class SupervisorAgent:
             query: Consulta do usuário
 
         Returns:
-            Resposta do agente apropriado
+            Resposta do ToolAgent
         """
         # Detectar se é requisição de gráfico
         is_chart_request = self._detect_chart_intent(query)

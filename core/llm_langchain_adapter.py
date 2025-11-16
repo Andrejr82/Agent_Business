@@ -1,5 +1,5 @@
 # core/llm_langchain_adapter.py
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 import json
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -21,6 +21,31 @@ from langchain_core.outputs import (
 )
 
 from core.llm_base import BaseLLMAdapter
+
+
+def _clean_json_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Remove a chave 'anyOf' de um dicionário JSON Schema, recursivamente.
+    A API Gemini não suporta 'anyOf' diretamente.
+    """
+    cleaned_schema = {}
+    for key, value in schema.items():
+        if key == "anyOf":
+            # Ignorar 'anyOf' completamente
+            continue
+        elif isinstance(value, dict):
+            cleaned_schema[key] = _clean_json_schema(value)
+        elif isinstance(value, list):
+            cleaned_list = []
+            for item in value:
+                if isinstance(item, dict):
+                    cleaned_list.append(_clean_json_schema(item))
+                else:
+                    cleaned_list.append(item)
+            cleaned_schema[key] = cleaned_list
+        else:
+            cleaned_schema[key] = value
+    return cleaned_schema
 
 
 class CustomLangChainLLM(BaseChatModel):
@@ -83,24 +108,25 @@ class CustomLangChainLLM(BaseChatModel):
                         })
                     generic_messages.append(
                         {
-                            "role": "assistant",
+                            "role": "model",
                             "content": msg.content,
                             "tool_calls": processed_tool_calls,
                         }
                     )
                 else:
                     generic_messages.append(
-                        {"role": "assistant", "content": msg.content}
+                        {"role": "model", "content": msg.content}
                     )
             elif isinstance(msg, SystemMessage):
-                generic_messages.append({"role": "system", "content": msg.content})
+                # Treat SystemMessage as a user message for Gemini
+                generic_messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, FunctionMessage):
                 generic_messages.append(
-                    {"role": "function", "name": msg.name, "content": msg.content}
+                    {"role": "model", "name": msg.name, "content": msg.content}
                 )
             elif isinstance(msg, ToolMessage):
                 tool_message_to_send = {
-                    "role": "tool",
+                    "role": "model",
                     "tool_call_id": msg.tool_call_id,
                     "content": str(msg.content),
                 }
@@ -133,13 +159,16 @@ class CustomLangChainLLM(BaseChatModel):
                             del param_details["title"]
                         processed_args[param] = param_details
 
+                    # Limpar o esquema de processed_args para remover 'anyOf'
+                    cleaned_processed_args = _clean_json_schema(processed_args)
+
                     generic_tools_declarations.append(
                         {
                             "name": tool.name,
                             "description": tool.description,
                             "parameters": {
                                 "type": "object",
-                                "properties": processed_args, # Usar processed_args
+                                "properties": cleaned_processed_args, # Usar cleaned_processed_args
                                 "required": required_params,
                             },
                         }

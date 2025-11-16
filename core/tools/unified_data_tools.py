@@ -1,12 +1,14 @@
 """
-Ferramentas unificadas para acessar dados de qualquer fonte.
-Versão corrigida com nomes reais das tabelas e colunas.
+Ferramentas unificadas para acessar dados de Filial_Madureira.parquet
+Este arquivo foi refatorado para usar o DataSourceManager centralizado.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import pandas as pd
 from langchain_core.tools import tool
+
+# Importa o gerenciador de dados centralizado
 from core.data_source_manager import get_data_manager
 
 logger = logging.getLogger(__name__)
@@ -14,428 +16,280 @@ logger = logging.getLogger(__name__)
 
 def _truncate_df_for_llm(df: pd.DataFrame, max_rows: int = 10) -> Dict[str, Any]:
     """Trunca o DataFrame e prepara a resposta para o LLM."""
-    if len(df) > max_rows:
+    if df is None or df.empty:
+        return {
+            "data": [],
+            "message": "Nenhum dado para exibir.",
+            "total_records": 0
+        }
+    
+    total_records = len(df)
+    if total_records > max_rows:
         return {
             "data": df.head(max_rows).to_dict(orient="records"),
-            "message": f"Mostrando as primeiras {max_rows} de {len(df)} linhas. Seja mais específico se precisar de mais detalhes.",
+            "message": f"Mostrando as primeiras {max_rows} de {total_records} linhas.",
+            "total_records": total_records
         }
-    return {"data": df.to_dict(orient="records")}
+    return {
+        "data": df.to_dict(orient="records"),
+        "total_records": total_records
+    }
 
 
 @tool
-def listar_dados_disponiveis() -> Dict[str, Any]:
+def listar_colunas_disponiveis() -> Dict[str, Any]:
     """
-    Lista todas as fontes de dados disponíveis e seu status.
-
+    IMPORTANTE: Use esta ferramenta PRIMEIRO quando não souber quais colunas existem!
+    
+    Lista todas as colunas disponíveis na fonte de dados principal (Filial_Madureira.parquet)
+    com seus tipos de dados e exemplos de valores.
+    
+    Esta é a ÚNICA fonte de dados do sistema. Não existe banco SQL ativo.
+    
     Returns:
-        Status de todas as fontes de dados (SQL Server, Parquet, JSON)
+        Dicionário com lista de colunas, tipos e exemplos de valores.
     """
-    logger.info("Listando fontes de dados disponíveis")
-
+    logger.info("Listando colunas disponíveis via DataSourceManager")
+    
     try:
-        manager = get_data_manager()
-        status = manager.get_status()
+        data_manager = get_data_manager()
+        source_info = data_manager.get_source_info()
 
-        available = [name for name, info in status.items() if info["connected"]]
+        if not source_info or source_info.get("status") == "sem_dados":
+            return {
+                "status": "error",
+                "message": "Não foi possível carregar os dados através do DataSourceManager."
+            }
 
-        logger.info(f"Fontes disponíveis: {available}")
+        df = data_manager.get_data(limit=10) # Pega alguns dados para exemplos
+        if df.empty:
+             return {
+                "status": "error",
+                "message": "Fonte de dados vazia."
+            }
 
+        colunas_info = []
+        for col, dtype in source_info.get("dtypes", {}).items():
+            col_info = {
+                "nome": col,
+                "tipo": str(dtype),
+                "exemplo": str(df[col].iloc[0]) if not df.empty and col in df.columns and len(df) > 0 else "N/A",
+                "valores_nulos": int(df[col].isna().sum()) if col in df.columns else "N/A"
+            }
+            colunas_info.append(col_info)
+            
         return {
             "status": "success",
-            "available_sources": available,
-            "sources_detail": status,
+            "total_colunas": source_info.get("shape", (0,0))[1],
+            "total_registros": source_info.get("shape", (0,0))[0],
+            "colunas": colunas_info,
+            "arquivo": source_info.get("file"),
+            "message": f"Encontradas {len(colunas_info)} colunas na fonte de dados."
         }
+        
     except Exception as e:
-        logger.error(f"Erro ao listar fontes: {e}", exc_info=True)
-        return {"status": "error", "message": f"Erro: {str(e)}"}
+        logger.error(f"Erro ao listar colunas: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"Erro: {str(e)}"
+        }
 
 
 @tool
-def get_produtos(limit: int = 100) -> Dict[str, Any]:
+def consultar_dados(
+    coluna: Optional[str] = None,
+    valor: Optional[str] = None,
+    coluna_retorno: Optional[str] = None,
+    limite: int = 100
+) -> str:
     """
-    Busca produtos de qualquer fonte disponível.
-    Tenta SQL Server primeiro, depois Parquet, depois JSON.
-
+    Consulta dados na fonte de dados Filial_Madureira.parquet.
+    
+    Use `listar_colunas_disponiveis` para ver as colunas.
+    
     Args:
-        limit: Número máximo de produtos a retornar
-
+        coluna: Nome da coluna para filtrar (opcional).
+        valor: Valor a buscar na coluna (opcional).
+        coluna_retorno: Coluna específica para retornar (opcional).
+        limite: Limite de registros (padrão: 100).
+    
     Returns:
-        Lista de produtos com metadados de origem
+        Uma string formatada com os dados consultados ou uma mensagem de erro/não encontrado.
     """
-    logger.info(f"Buscando {limit} produtos")
-
+    logger.info(f"Consultando via DataSourceManager: coluna={coluna}, valor={valor}, coluna_retorno={coluna_retorno}, limite={limite}")
+    
     try:
-        manager = get_data_manager()
+        data_manager = get_data_manager()
+        
+        # Se não houver filtro, retorna os primeiros dados
+        if not coluna or not valor:
+            df_resultado = data_manager.get_data(limit=limite)
+        else:
+            # Usa o método de busca do data_manager
+            df_resultado = data_manager.search_data(column=coluna, value=str(valor), limit=limite)
 
-        tabelas = ["Admat_OPCOM"]
+        if df_resultado is None or df_resultado.empty:
+            filtro_msg = f" com filtro {coluna}='{valor}'" if coluna and valor else ""
+            return f"Nenhum dado encontrado{filtro_msg}."
 
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=limit)
-                if not df.empty:
-                    logger.info(f"Encontrados {len(df)} produtos em {tabela}")
-                    response_data = _truncate_df_for_llm(df)
-                    return {
-                        "status": "success",
-                        "source": tabela,
-                        "count": len(df),
-                        "columns": list(df.columns),
-                        **response_data,
-                    }
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        # Se coluna_retorno especificada, retornar apenas essa coluna
+        if coluna_retorno:
+            if coluna_retorno not in df_resultado.columns:
+                return f"Coluna de retorno '{coluna_retorno}' não encontrada."
+            
+            if df_resultado.empty:
+                 return f"Nenhum valor encontrado para '{coluna_retorno}' com o filtro especificado."
 
-        return {
-            "status": "not_found",
-            "message": "Nenhuma tabela de produtos encontrada",
-        }
+            valor_retornado = df_resultado[coluna_retorno].iloc[0]
+            
+            if pd.isna(valor_retornado) or valor_retornado == '':
+                return f"O valor para '{coluna_retorno}' no item com {coluna}='{valor}' não foi encontrado ou está vazio."
+            
+            # Se a coluna de filtro for 'ITEM' e a coluna de retorno for 'FABRICANTE', formatar de forma mais humana
+            if coluna.upper() == 'ITEM' and coluna_retorno.upper() == 'FABRICANTE':
+                return f"O fabricante do item {valor} é '{valor_retornado}'."
+            else:
+                return f"O valor da coluna '{coluna_retorno}' para o item com {coluna}='{valor}' é '{valor_retornado}'."
+        
+        # Retornar dados completos
+        response_data = _truncate_df_for_llm(df_resultado, max_rows=limite)
+        return f"Consulta retornou {response_data['total_records']} registros. Primeiros resultados: {response_data['data']}"
+        
     except Exception as e:
-        logger.error(f"Erro ao buscar produtos: {e}", exc_info=True)
-        return {"status": "error", "message": f"Erro: {str(e)}"}
+        logger.error(f"Erro ao consultar dados: {e}", exc_info=True)
+        return f"Erro ao consultar dados: {str(e)}."
 
 
 @tool
 def buscar_produto(
-    codigo: str = None, nome: str = None, limit: int = 10
+    codigo: Optional[str] = None,
+    nome: Optional[str] = None,
+    limite: int = 10
 ) -> Dict[str, Any]:
     """
-    Busca um produto específico por código ou nome.
-
+    Busca produtos por código ou nome usando o DataSourceManager.
+    
     Args:
-        codigo: Código do produto (busca em coluna 'codigo')
-        nome: Nome do produto (busca em coluna 'nome')
-        limit: Número máximo de resultados
-
+        codigo: Código do produto (busca em 'CODIGO').
+        nome: Nome do produto (busca parcial em 'DESCRIÇÃO').
+        limite: Número máximo de resultados.
+    
     Returns:
-        Dados do(s) produto(s) encontrado(s)
+        Dicionário com os produtos encontrados.
     """
-    logger.info(f"Buscando produto: código={codigo}, nome={nome}")
-
+    logger.info(f"Buscando produto via DataSourceManager: código={codigo}, nome={nome}")
+    
     try:
-        manager = get_data_manager()
+        data_manager = get_data_manager()
+        df_result = pd.DataFrame()
+        criterio = ""
+        valor_buscado = ""
 
         if codigo:
-            column = "codigo"
-            value = codigo
-            logger.debug(f"Buscando por código: {codigo}")
+            df_result = data_manager.search_data(column='CODIGO', value=str(codigo).strip(), limit=limite)
+            criterio = "código"
+            valor_buscado = codigo
         elif nome:
-            column = "nome"
-            value = nome
-            logger.debug(f"Buscando por nome: {nome}")
+            df_result = data_manager.search_data(column='DESCRIÇÃO', value=nome, limit=limite)
+            criterio = "nome"
+            valor_buscado = nome
         else:
-            return {"status": "error", "message": "Informe código ou nome do produto"}
-
-        tabelas = ["Admat_OPCOM"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.search_data(tabela, column, value, limit=limit)
-                if not df.empty:
-                    logger.info(f"Encontrados {len(df)} resultado(s) em {tabela}")
-                    response_data = _truncate_df_for_llm(df)
-                    return {
-                        "status": "success",
-                        "source": tabela,
-                        "search_column": column,
-                        "search_value": value,
-                        "count": len(df),
-                        "columns": list(df.columns),
-                        **response_data,
-                    }
-            except Exception as e:
-                logger.debug(f"Erro ao buscar em {tabela}: {e}")
-                continue
-
+            return {"status": "error", "message": "Informe código ou nome do produto."}
+        
+        if df_result is None or df_result.empty:
+            return {
+                "status": "not_found",
+                "message": f"Produto não encontrado com {criterio}='{valor_buscado}'."
+            }
+        
+        response_data = _truncate_df_for_llm(df_result, max_rows=limite)
+        
         return {
-            "status": "not_found",
-            "message": f"Produto não encontrado com {column}='{value}'",
+            "status": "success",
+            "criterio_busca": criterio,
+            "valor_buscado": valor_buscado,
+            "colunas": list(df_result.columns),
+            **response_data
         }
+        
     except Exception as e:
         logger.error(f"Erro ao buscar produto: {e}", exc_info=True)
         return {"status": "error", "message": f"Erro: {str(e)}"}
 
 
 @tool
-def buscar_por_categoria(categoria: str, limit: int = 20) -> Dict[str, Any]:
-    """
-    Busca produtos por categoria.
-    Tenta procurar em colunas: 'categoria', 'nome_categoria',
-    'categoria_produto'
-
-    Args:
-        categoria: Nome ou parte do nome da categoria
-        limit: Número máximo de produtos a retornar
-
-    Returns:
-        Produtos da categoria especificada
-    """
-    logger.info(f"Buscando produtos na categoria: {categoria}")
-
-    try:
-        manager = get_data_manager()
-
-        tabelas_e_colunas = [
-            ("Admat_OPCOM", "categoria"),
-        ]
-
-        for tabela, coluna in tabelas_e_colunas:
-            try:
-                df = manager.search_data(tabela, coluna, categoria, limit=limit)
-                if not df.empty:
-                    logger.info(
-                        f"Encontrados {len(df)} produtos "
-                        f"na categoria '{categoria}' em {tabela}"
-                    )
-                    response_data = _truncate_df_for_llm(df)
-                    return {
-                        "status": "success",
-                        "source": tabela,
-                        "column_used": coluna,
-                        "category": categoria,
-                        "count": len(df),
-                        "columns": list(df.columns),
-                        **response_data,
-                    }
-            except Exception as e:
-                logger.debug(f"Erro ao buscar em {tabela} " f"coluna {coluna}: {e}")
-                continue
-
-        return {
-            "status": "not_found",
-            "message": f"Nenhum produto encontrado na categoria '{categoria}'",
-        }
-
-    except Exception as e:
-        logger.error(f"Erro ao buscar por categoria: {e}", exc_info=True)
-        return {"status": "error", "message": f"Erro: {str(e)}"}
-
-
-@tool
 def obter_estoque(
-    codigo_produto: str = None, nome_produto: str = None
+    codigo_produto: Optional[str] = None,
+    nome_produto: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Obtém informações de estoque de um produto.
-
+    Obtém informações de estoque de um produto usando o DataSourceManager.
+    
     Args:
-        codigo_produto: Código do produto
-        nome_produto: Nome do produto
-
+        codigo_produto: Código do produto.
+        nome_produto: Nome do produto.
+    
     Returns:
-        Dados de estoque do produto
+        Dados de estoque do produto.
     """
-    logger.info(
-        f"Consultando estoque: código={codigo_produto}, " f"nome={nome_produto}"
-    )
-
+    logger.info(f"Consultando estoque via DataSourceManager: código={codigo_produto}, nome={nome_produto}")
+    
     try:
-        manager = get_data_manager()
+        data_manager = get_data_manager()
+        df_produto = pd.DataFrame()
+        criterio = ""
 
         if codigo_produto:
-            search_column = "codigo"
-            search_value = codigo_produto
-            logger.debug(f"Buscando estoque por código: {codigo_produto}")
+            df_produto = data_manager.search_data(column='CODIGO', value=str(codigo_produto).strip(), limit=1)
+            criterio = f"código={codigo_produto}"
         elif nome_produto:
-            search_column = "nome"
-            search_value = nome_produto
-            logger.debug(f"Buscando estoque por nome: {nome_produto}")
+            df_produto = data_manager.search_data(column='DESCRIÇÃO', value=nome_produto, limit=1)
+            criterio = f"nome contendo '{nome_produto}'"
         else:
-            return {"status": "error", "message": "Informe código ou nome do produto"}
-
-        tabelas = ["Admat_OPCOM"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.search_data(tabela, search_column, search_value, limit=1)
-                if not df.empty:
-                    logger.info(f"Produto encontrado em {tabela}")
-
-                    estoque_columns = [
-                        "est_une",
-                        "estoque",
-                        "EST# UNE",
-                        "ESTOQUE",
-                        "stock",
-                        "STOCK",
-                        "quantidade",
-                        "QUANTIDADE",
-                    ]
-
-                    estoque_col = None
-                    estoque_valor = None
-
-                    for col in estoque_columns:
-                        if col in df.columns:
-                            estoque_col = col
-                            estoque_valor = df[col].iloc[0]
-                            logger.debug(
-                                f"Encontrada coluna de estoque: "
-                                f"{col} = {estoque_valor}"
-                            )
-                            break
-
-                    produto_info = _truncate_df_for_llm(df, max_rows=1)
-                    if estoque_col:
-                        return {
-                            "status": "success",
-                            "source": tabela,
-                            "search_by": search_column,
-                            "estoque_column": estoque_col,
-                            "estoque_value": estoque_valor,
-                            "produto": produto_info.get("data", [{}])[0],
-                        }
-                    else:
-                        logger.warning(
-                            f"Produto encontrado mas sem coluna "
-                            f"de estoque em {tabela}"
-                        )
-                        return {
-                            "status": "success",
-                            "source": tabela,
-                            "message": (
-                                "Produto encontrado mas sem " "informação de estoque"
-                            ),
-                            "columns_available": list(df.columns),
-                            "produto": produto_info.get("data", [{}])[0],
-                        }
-            except Exception as e:
-                logger.debug(f"Erro ao buscar em {tabela}: {e}")
-                continue
-
-        return {
-            "status": "not_found",
-            "message": (
-                f"Produto não encontrado com " f"{search_column}='{search_value}'"
-            ),
+            return {"status": "error", "message": "Informe código ou nome do produto."}
+        
+        if df_produto is None or df_produto.empty:
+            return {
+                "status": "not_found",
+                "message": f"Produto não encontrado com {criterio}."
+            }
+        
+        produto = df_produto.iloc[0]
+        
+        estoque_col = None
+        estoque_valor = 0
+        for col in ['QTD', 'SALDO', 'ESTOQUE']:
+            if col in df_produto.columns:
+                estoque_col = col
+                valor = produto.get(col)
+                if pd.notna(valor):
+                    estoque_valor = int(valor)
+                break
+        
+        info_produto = {
+            "codigo": str(produto.get('CODIGO', 'N/A')),
+            "descricao": str(produto.get('DESCRIÇÃO', 'N/A')),
+            "estoque_coluna": estoque_col,
+            "estoque_valor": estoque_valor,
+            "fabricante": str(produto.get('FABRICANTE', 'N/A')),
+            "grupo": str(produto.get('GRUPO', 'N/A'))
         }
-
+        
+        return {
+            "status": "success",
+            "criterio_busca": criterio,
+            "produto": info_produto
+        }
+        
     except Exception as e:
         logger.error(f"Erro ao obter estoque: {e}", exc_info=True)
         return {"status": "error", "message": f"Erro: {str(e)}"}
 
 
-@tool
-def consultar_dados(
-    tabela: str,
-    limite: int = 100,
-    coluna: str = None,  # type: ignore
-    valor: str = None,  # type: ignore
-    coluna_retorno: str = None, # Novo parâmetro para a coluna a ser retornada
-) -> Dict[str, Any]:
-    """
-    Consulta genérica de dados na tabela 'Filial_Madureira'.
-    Esta tabela contém informações detalhadas sobre produtos, vendas, custos e lucros.
-
-    Colunas disponíveis na tabela 'Filial_Madureira':
-    - 'ITEM' (int): Número identificador do item/produto.
-    - 'CODIGO' (str): Código de barras ou identificador único do produto.
-    - 'DESCRIÇÃO' (str): Descrição detalhada do produto.
-    - 'QTD' (int): Quantidade atual em estoque.
-    - 'VENDA R$' (float): Valor total de venda em Reais.
-    - 'DESC. R$' (float): Valor de desconto em Reais.
-    - 'CUSTO R$' (float): Custo total em Reais.
-    - 'LUCRO R$' (float): Lucro total em Reais.
-    - 'LUCRO TOTAL %' (float): Lucro total em porcentagem.
-    - 'CUSTO UNIT R$' (float): Custo unitário em Reais.
-    - 'VENDA UNIT R$' (float): Valor de venda unitário em Reais.
-    - 'LUCRO UNIT %' (float): Lucro unitário em porcentagem.
-    - 'SALDO' (int): Saldo de estoque.
-    - 'VENDA QTD JAN' (int): Quantidade vendida em Janeiro.
-    - 'VENDA QTD FEV' (int): Quantidade vendida em Fevereiro.
-    - 'VENDA QTD MAR' (int): Quantidade vendida em Março.
-    - 'VENDA QTD ABR' (int): Quantidade vendida em Abril.
-    - 'VENDA QTD MAI' (int): Quantidade vendida em Maio.
-    - 'VENDA QTD JUN' (int): Quantidade vendida em Junho.
-    - 'VENDA QTD JUL' (int): Quantidade vendida em Julho.
-    - 'VENDA QTD AGO' (int): Quantidade vendida em Agosto.
-    - 'VENDA QTD SET' (int): Quantidade vendida em Setembro.
-    - 'VENDA QTD OUT' (int): Quantidade vendida em Outubro.
-    - 'VENDA QTD NOV' (int): Quantidade vendida em Novembro.
-    - 'VENDA QTD DEZ' (int): Quantidade vendida em Dezembro.
-    - 'VLR ESTOQUE VENDA' (float): Valor do estoque para venda.
-    - 'VLR ESTOQUE CUSTO' (float): Valor do estoque ao custo.
-    - 'FABRICANTE' (str): Nome do fabricante do produto.
-    - 'DT CADASTRO' (datetime): Data de cadastro do produto.
-    - 'DT ULTIMA COMPRA' (datetime): Data da última compra do produto.
-    - 'GRUPO' (str): Grupo ou categoria do produto.
-    - 'QTD ULTIMA COMPRA' (int): Quantidade da última compra.
-
-    Args:
-        tabela: Nome da tabela (atualmente apenas 'Filial_Madureira' é suportada para esta ferramenta).
-        limite: Limite de registros a retornar.
-        coluna: Nome da coluna para filtrar (opcional).
-        valor: Valor a buscar na coluna (opcional).
-        coluna_retorno: Nome da coluna cujo valor deve ser retornado para o primeiro registro encontrado (opcional).
-                        Pode ser a mesma coluna usada para filtrar (`coluna`).
-
-    Returns:
-        Dados consultados com metadados. Se `coluna_retorno` for especificado, retorna apenas o valor dessa coluna.
-
-    Exemplo de uso:
-    - Para obter o 'CODIGO' do item com 'ITEM' igual a 1:
-      `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='1', coluna_retorno='CODIGO')`
-    - Para obter o 'ITEM' do item com 'ITEM' igual a 1 (coluna de filtro e retorno são as mesmas):
-      `consultar_dados(tabela='Filial_Madureira', coluna='ITEM', valor='1', coluna_retorno='ITEM')`
-    """
-    logger.info(
-        f"Consultando {tabela}: coluna={coluna}, "
-        f"valor={valor}, limite={limite}, coluna_retorno={coluna_retorno}"
-    )
-
-    try:
-        manager = get_data_manager()
-
-        if coluna and valor:
-            logger.debug(f"Executando busca com filtro: {coluna}='{valor}'")
-            df = manager.search_data(tabela, coluna, valor, limit=limite)
-        else:
-            logger.debug(f"Executando busca sem filtro, limite={limite}")
-            df = manager.get_data(tabela, limit=limite)
-
-        if df.empty:
-            return {
-                "status": "not_found",
-                "message": f"Nenhum dado encontrado em {tabela}",
-            }
-
-        # Se coluna_retorno for especificado e existir no DataFrame, retorna o valor
-        if coluna_retorno and coluna_retorno in df.columns:
-            return {
-                "status": "success",
-                "tabela": tabela,
-                "filtro_aplicado": (
-                    f"{coluna}='{valor}'" if coluna and valor else "nenhum"
-                ),
-                "coluna_retornada": coluna_retorno,
-                "valor_retornado": df[coluna_retorno].iloc[0],
-            }
-        # Se coluna_retorno não for especificado, ou não existir, retorna o DataFrame completo (truncado)
-        else:
-            logger.info(f"Consulta retornou {len(df)} registros")
-            response_data = _truncate_df_for_llm(df)
-            return {
-                "status": "success",
-                "tabela": tabela,
-                "filtro_aplicado": (
-                    f"{coluna}='{valor}'" if coluna and valor else "nenhum"
-                ),
-                "total_registros": len(df),
-                "colunas": list(df.columns),
-                **response_data,
-            }
-
-    except Exception as e:
-        logger.error(f"Erro ao consultar dados: {e}", exc_info=True)
-        return {"status": "error", "message": f"Erro: {str(e)}"}
-
-
-# Lista de ferramentas unificadas para o agente
+# Lista de ferramentas unificadas - EXPORTAÇÃO IMPORTANTE
 unified_tools = [
-    listar_dados_disponiveis,
-    get_produtos,
-    buscar_produto,
-    buscar_por_categoria,
-    obter_estoque,
+    listar_colunas_disponiveis,
     consultar_dados,
+    buscar_produto,
+    obter_estoque,
 ]
