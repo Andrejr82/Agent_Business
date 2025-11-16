@@ -1,8 +1,8 @@
-# Caçulinha BI
+# Agente de Negócios
 
 ## Descrição do Projeto
 
-O Caçulinha BI é um sistema de Business Intelligence desenvolvido em Python, utilizando SQL Server, Parquet e a API do Google Gemini, com uma interface interativa construída com Streamlit. O objetivo principal é fornecer insights e análises de dados de forma eficiente e acessível.
+O Agente de Negócios é um sistema de Business Intelligence desenvolvido em Python, utilizando SQL Server, Parquet e a API do Google Gemini, com uma interface interativa construída com Streamlit. O objetivo principal é fornecer insights e análises de dados de forma eficiente e acessível.
 
 Este projeto está em constante evolução, com foco em melhorias contínuas em sua arquitetura, segurança e eficiência. As próximas etapas incluem a integração de um banco de dados robusto para gerenciamento de usuários, uma UI para gerenciamento de catálogo de dados, orquestração LLM avançada, containerização com Docker e a implementação de um pipeline CI/CD.
 
@@ -63,7 +63,7 @@ Informações e planos de melhoria anteriores, como os encontrados em `docs/arch
 
 ## Arquitetura Detalhada e Fluxos
 
-Esta seção descreve os principais fluxos de trabalho do Assistente de BI Caçulinha, com diagramas para facilitar a compreensão.
+Esta seção descreve os principais fluxos de trabalho do Agente de Negócios Caçulinha, com diagramas para facilitar a compreensão.
 
 ### 1. Fluxo de Processamento de Consulta
 
@@ -75,7 +75,7 @@ Este fluxograma ilustra como uma pergunta do usuário é processada pelo sistema
 graph TD
     A[Usuário faz pergunta] --> B{Streamlit App};
     B --> C[Processa Pergunta];
-    C --> D[Assistente de BI responde];
+    C --> D[Agente de Negócios responde];
 ```
 
 #### Para Especialistas:
@@ -147,6 +147,6 @@ graph TD
     C -- "Submit" --> D{auth_db.autenticar_usuario()};
     D -- "Sucesso" --> E[Sessão Autenticada];
     D -- "Falha" --> C;
-    E --> F[Redireciona para Assistente de BI];
+    E --> F[Redireciona para Agente de Negócios];
     F --> G(show_bi_assistant());
 ```

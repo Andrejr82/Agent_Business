@@ -7,14 +7,14 @@ import streamlit as st
 import time
 import logging
 
-# Escolhe o adapter de autenticação: SQL Server (legacy) ou Parquet
-db_enabled = bool(
+# Por padrão, usa DuckDB. Se variáveis de ambiente de SQL Server estiverem definidas, usa SQL Server.
+sql_server_enabled = bool(
     os.getenv("DATABASE_URI") or (os.getenv("DB_SERVER") and os.getenv("DB_DRIVER"))
 )
-if db_enabled:
+if sql_server_enabled:
     from core.database import sql_server_auth_db as auth_db
 else:
-    from core.database import parquet_auth_db as auth_db
+    from core.database import duckdb_auth as auth_db
 
 audit_logger = logging.getLogger("audit")
 
@@ -32,7 +32,7 @@ def login():
             """
             <div style='text-align:center;'>
                 <img src='https://raw.githubusercontent.com/github/explore/main/topics/business-intelligence/business-intelligence.png' width='150'>
-                <h2>Caçulinha BI</h2>
+                <h2>Agente de Negócios</h2>
                 <p style='color:#666;'>Acesse com seu usuário e senha para continuar.</p>
             </div>
             """,
@@ -73,31 +73,9 @@ def login():
                     return
 
                 # Se o DB não estiver habilitado (por design do ambiente), não tentamos conectar
-                if not db_enabled:
-                    # Se estiver em modo demo, permite login genérico; caso contrário informa o usuário
-                    demo_mode = str(os.getenv("DEMO_MODE", "False")).lower() in (
-                        "1",
-                        "true",
-                        "yes",
-                    )
-                    if demo_mode:
-                        st.session_state["authenticated"] = True
-                        st.session_state["username"] = username
-                        st.session_state["role"] = "demo"
-                        st.session_state["ultimo_login"] = time.time()
-                        audit_logger.info(f"Usuário {username} logado em modo demo.")
-                        st.success("Modo demo: acesso concedido.")
-                        time.sleep(1)
-                        st.rerun()
-                        return
-                    else:
-                        st.error(
-                            "Autenticação por banco de dados desativada. Ative `DEMO_MODE` ou configure uma fonte de usuários."
-                        )
-                        return
-
-                role, erro = auth_db.autenticar_usuario(username, password)
-                if role:
+                user_data = auth_db.verify_user(username, password)
+                if user_data:
+                    role = user_data["role"]
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = username
                     st.session_state["role"] = role
@@ -109,15 +87,11 @@ def login():
                     time.sleep(1)
                     st.rerun()
                 else:
+                    erro = "Usuário ou senha inválidos."
                     audit_logger.warning(
-                        f"Tentativa de login falha para o usuário: {username}. Erro: {erro or 'Usuário ou senha inválidos.'}"
+                        f"Tentativa de login falha para o usuário: {username}. Erro: {erro}"
                     )
-                    if erro and "bloqueado" in erro:
-                        st.error(f"{erro} Contate o administrador.")
-                    elif erro and "Tentativas restantes" in erro:
-                        st.warning(erro)
-                    else:
-                        st.error(erro or "Usuário ou senha inválidos.")
+                    st.error(erro)
 
 
 # --- Expiração automática de sessão ---

@@ -35,6 +35,13 @@ class QueryProcessor:
         Returns:
             dict: O resultado do processamento pelo agente especialista apropriado.
         """
+        # Interceptar perguntas sobre o nome do agente
+        if query.lower() in ["qual seu nome", "quem é você", "qual o seu nome"]:
+            return {
+                "type": "text",
+                "output": "Eu sou um Agente de Negócios, pronto para ajudar com suas análises de dados."
+            }
+
         cached_result = self.cache.get(query)
         if cached_result:
             self.logger.info(

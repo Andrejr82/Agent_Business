@@ -10,15 +10,15 @@ logging.basicConfig(
     filename="logs/agent.log",
     filemode="a",
 )
-logger = logging.getLogger("caculinha_dev_agent")
+logger = logging.getLogger("developer_agent")
 
 
-class CaculinhaDevAgent(BaseAgent):
-    """Agente especializado em desenvolvimento de código estilo Vibe Coding."""
+class DeveloperAgent(BaseAgent):
+    """Agente especializado em desenvolvimento de código."""
 
     def __init__(self, session_id=None, use_mock_data=False, mcp_adapter=None):
         """
-        Inicializa o agente Caçulinha Dev.
+        Inicializa o Agente de Desenvolvimento.
 
         Args:
             session_id (str): ID da sessão para persistência de estado.
@@ -27,28 +27,28 @@ class CaculinhaDevAgent(BaseAgent):
         """
         super().__init__(session_id, use_mock_data, mcp_adapter)
         self._load_prompts()
-        logger.info("Agente Caçulinha Dev inicializado. Sessão: %s", session_id)
+        logger.info("Agente de Desenvolvimento inicializado. Sessão: %s", session_id)
 
     def _load_prompts(self):
         """Carrega os prompts do arquivo ou usa um fallback."""
         prompt_loader = PromptLoader()
-        prompt_data = prompt_loader.load_prompt("prompt_caculinha_dev")
+        prompt_data = prompt_loader.load_prompt("prompt_developer_agent")
 
         if prompt_data:
             self.system_prompt = prompt_data.get("system_prompt", "")
             self.capabilities = prompt_data.get("capabilities", [])
             self.safety_rules = prompt_data.get("safety_rules", [])
             self.model_config = prompt_data.get("model_config", {})
-            logger.info("Prompt carregado com sucesso para o agente Caçulinha Dev.")
+            logger.info("Prompt carregado com sucesso para o Agente de Desenvolvimento.")
         else:
             self.system_prompt = (
-                "Você é o Caçulinha Dev, um assistente virtual "
-                "especializado em desenvolvimento de código com estilo Vibe Coding."
+                "Você é um assistente virtual "
+                "especializado em desenvolvimento de código."
             )
             self.capabilities = ["code_development", "code_review", "debugging"]
             self.safety_rules = ["no_malicious_code", "portuguese_only_responses"]
             self.model_config = {"model": "gpt-35-turbo", "temperature": 0.2}
-            logger.warning("Usando prompt padrão para o agente Caçulinha Dev.")
+            logger.warning("Usando prompt padrão para o Agente de Desenvolvimento.")
 
     def process_query(self, query):
         """
@@ -60,7 +60,7 @@ class CaculinhaDevAgent(BaseAgent):
         Returns:
             dict: Resposta processada.
         """
-        logger.info("Agente Caçulinha Dev processando consulta: %s", query)
+        logger.info("Agente de Desenvolvimento processando consulta: %s", query)
 
         if not self._is_relevant_query(query):
             logger.info("Consulta não relevante para o agente Dev: %s", query)
@@ -84,7 +84,7 @@ class CaculinhaDevAgent(BaseAgent):
 
             return result
         except Exception as e:
-            logger.error("Erro no agente Caçulinha Dev: %s", e)
+            logger.error("Erro no Agente de Desenvolvimento: %s", e)
             return {
                 "response": "Desculpe, ocorreu um erro ao processar sua consulta.",
                 "error": str(e),

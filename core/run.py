@@ -1,5 +1,5 @@
 """
-Script principal para executar o agente Caçulinha BI.
+Script principal para executar o Agente de Negócios.
 """
 
 import logging
@@ -34,13 +34,13 @@ def main():
             print("[ERRO] Não foi possível criar o agente.")
             return False
 
-        print("\nCaçulinha BI iniciado! Digite 'sair' para encerrar.\n")
+        print("\nAgente de Negócios iniciado! Digite 'sair' para encerrar.\n")
 
         # Loop principal para processar consultas
         while True:
             query = input("Você: ")
             if query.lower() in ["sair", "exit", "quit"]:
-                print("\nCaçulinha: Até logo!")
+                print("\nAgente: Até logo!")
                 break
 
             # Processa a consulta
@@ -50,14 +50,14 @@ def main():
             if isinstance(response, dict):
                 if "error" in response:
                     print(
-                        f"\nCaçulinha: Desculpe, ocorreu um erro: {response['error']}"
+                        f"\nAgente: Desculpe, ocorreu um erro: {response['error']}"
                     )
                 elif "response" in response:
-                    print(f"\nCaçulinha: {response['response']}")
+                    print(f"\nAgente: {response['response']}")
                 else:
-                    print(f"\nCaçulinha: {response}")
+                    print(f"\nAgente: {response}")
             else:
-                print(f"\nCaçulinha: {response}")
+                print(f"\nAgente: {response}")
 
         return True
     except Exception as e:

@@ -1,85 +1,59 @@
 import streamlit as st
-import sys
 import os
+import json
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Adiciona o diretório raiz do projeto ao sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ui.ui_components import get_image_download_link
+DASHBOARD_DIR = "data/dashboards"
 
 st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='info-box'>Visualize e organize seus gráficos em um dashboard personalizado.</div>",
+    "<div class='info-box'>Visualize todos os gráficos gerados pelo agente.</div>",
     unsafe_allow_html=True,
 )
 
-# Verificar se existem gráficos no dashboard
-if not st.session_state.get("dashboard_charts", []):
+# Garantir que o diretório de dashboards exista
+os.makedirs(DASHBOARD_DIR, exist_ok=True)
+
+# Listar os arquivos de gráficos salvos
+try:
+    chart_files = [f for f in os.listdir(DASHBOARD_DIR) if f.endswith(".json")]
+    # Ordenar por data de criação (do mais novo para o mais antigo)
+    chart_files.sort(reverse=True)
+except FileNotFoundError:
+    chart_files = []
+
+if not chart_files:
     st.warning(
-        "Nenhum gráfico adicionado ao dashboard ainda. Use o Assistente de BI para gerar gráficos e adicioná-los aqui."
+        "Nenhum gráfico gerado ainda. Use o Agente de Negócios para gerar gráficos e eles aparecerão aqui."
     )
 else:
-    # Opções de organização
-    col1, col2 = st.columns(2)
-    with col1:
-        layout = st.radio("Layout", ["1 coluna", "2 colunas", "3 colunas"])
-    with col2:
-        sort_by = st.selectbox(
-            "Ordenar por", ["Mais recentes", "Mais antigos", "Tipo de gráfico"]
-        )
+    st.success(f"Encontrados {len(chart_files)} gráficos gerados.")
 
-    # Ordenar gráficos
-    charts = st.session_state.dashboard_charts.copy()
-    if sort_by == "Mais recentes":
-        charts = sorted(charts, key=lambda x: x["timestamp"], reverse=True)
-    elif sort_by == "Mais antigos":
-        charts = sorted(charts, key=lambda x: x["timestamp"])
-    elif sort_by == "Tipo de gráfico":
-        charts = sorted(charts, key=lambda x: x["type"])
-
-    # Determinar número de colunas
-    if layout == "1 coluna":
-        num_cols = 1
-    elif layout == "2 colunas":
-        num_cols = 2
-    else:
-        num_cols = 3
-
-    # Criar layout de colunas
+    # Opções de layout
+    layout = st.radio("Layout", ["1 coluna", "2 colunas"], index=1)
+    num_cols = 1 if layout == "1 coluna" else 2
     cols = st.columns(num_cols)
 
-    # Exibir gráficos no dashboard
-    for i, chart_info in enumerate(charts):
+    # Exibir gráficos
+    for i, filename in enumerate(chart_files):
+        filepath = os.path.join(DASHBOARD_DIR, filename)
         with cols[i % num_cols]:
-            with st.container():
-                st.markdown(
-                    f"<div class='sub-header'>{chart_info['title']}</div>",
-                    unsafe_allow_html=True,
-                )
-                st.plotly_chart(chart_info["fig"], use_container_width=True)
-
-                # Opções para cada gráfico
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Exportar como PNG", key=f"export_png_{i}"):
-                        st.markdown(
-                            get_image_download_link(
-                                chart_info["fig"],
-                                f"grafico_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                                "📥 Clique aqui para baixar como PNG",
-                            ),
-                            unsafe_allow_html=True,
-                        )
-                with col2:
-                    if st.button("Remover do Dashboard", key=f"remove_{i}"):
-                        st.session_state.dashboard_charts.remove(chart_info)
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    chart_json = f.read()
+                    figure = go.Figure(json.loads(chart_json))
+                
+                with st.container():
+                    st.plotly_chart(figure, use_container_width=True)
+                    
+                    # Botão de exclusão
+                    if st.button("Excluir Gráfico", key=f"delete_{filename}"):
+                        os.remove(filepath)
                         st.rerun()
 
-                # Mostrar a consulta que gerou o gráfico
-                st.caption(f"Consulta: {chart_info['query']}")
-
-    # Opção para limpar todo o dashboard
-    if st.button("Limpar Dashboard"):
-        st.session_state.dashboard_charts = []
-        st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao carregar o gráfico {filename}: {e}")

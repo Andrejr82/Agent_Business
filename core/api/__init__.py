@@ -93,7 +93,7 @@ def create_app():
     def welcome():
         return jsonify(
             {
-                "message": "Bem-vindo à API Caçulinha BI!",
+                "message": "Bem-vindo à API do Agente de Negócios!",
                 "status": "online",
                 "docs": "/api/status",
             }

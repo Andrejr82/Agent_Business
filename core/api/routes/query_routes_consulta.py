@@ -16,9 +16,9 @@ query_routes_consulta = Blueprint("query_routes_consulta", __name__)
 
 general_responses = {
     "saudacao": [
-        "Olá! Sou o Caçulinha, seu assistente. Como posso ajudar?",
-        "Oi! Tudo bem? Sou o Caçulinha, estou aqui para ajudar com informações sobre produtos, vendas e estoque.",
-        "Olá! Sou o Caçulinha, seu assistente de BI. O que você gostaria de saber hoje?",
+        "Olá! Sou o Agente, seu assistente. Como posso ajudar?",
+        "Oi! Tudo bem? Sou o Agente, estou aqui para ajudar com informações sobre produtos, vendas e estoque.",
+        "Olá! Sou o seu Agente de Negócios. O que você gostaria de saber hoje?",
     ],
     "agradecimento": [
         "Por nada! Estou sempre à disposição para ajudar.",
@@ -61,7 +61,7 @@ def analyze_query_consulta(query):
         return {"response": random.choice(general_responses["despedida"])}
     if help_pattern.search(query):
         return {
-            "response": "Sou o Caçulinha, seu assistente de BI. Posso ajudar com informações sobre produtos, preços, estoque, vendas e categorias. Por exemplo, você pode me perguntar sobre o preço de um produto específico, os produtos mais vendidos, o estoque por categoria, entre outras coisas."
+            "response": "Sou o seu Agente de Negócios. Posso ajudar com informações sobre produtos, preços, estoque, vendas e categorias. Por exemplo, você pode me perguntar sobre o preço de um produto específico, os produtos mais vendidos, o estoque por categoria, entre outras coisas."
         }
     # Produto por código
     product_code_match = product_code_pattern.search(query)

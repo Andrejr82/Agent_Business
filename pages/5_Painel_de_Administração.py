@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 import logging
-from core.database import sql_server_auth_db as auth_db
+from core.database import duckdb_auth as auth_db
 
 audit_logger = logging.getLogger("audit")
 
@@ -145,7 +145,7 @@ if st.session_state.get("authenticated") and st.session_state.get("role") == "ad
         st.info("Nenhum usuário cadastrado ainda.")
 
     st.markdown(
-        f"<div class='footer'>Desenvolvido para Análise de Dados Caçula © {datetime.now().year}</div>",
+        f"<div class='footer'>Desenvolvido para Análise de Dados © {datetime.now().year}</div>",
         unsafe_allow_html=True,
     )
 

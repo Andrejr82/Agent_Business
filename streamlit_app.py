@@ -22,13 +22,14 @@ from core.query_processor import QueryProcessor
 from core.session_state import SESSION_STATE_KEYS
 from core.config.logging_config import setup_logging
 from core.utils.context import correlation_id_var
+from ui.ui_components import get_image_download_link
 
 audit_logger = logging.getLogger("audit")
 
 # --- Constantes ---
 ROLES = {"ASSISTANT": "assistant", "USER": "user"}
 PAGE_CONFIG = {
-    "page_title": "Assistente de BI - Caçula",
+    "page_title": "Agente de Negócios",
     "page_icon": "📊",
     "layout": "wide",
     "initial_sidebar_state": "expanded",
@@ -74,7 +75,7 @@ def handle_logout():
 def show_bi_assistant():
     """Exibe a interface principal do assistente de BI."""
     st.markdown(
-        "<h1 class='main-header'>📊 Assistente de BI Caçulinha</h1>",
+        "<h1 class='main-header'>📊 Agente de Negócios</h1>",
         unsafe_allow_html=True,
     )
 
@@ -191,6 +192,17 @@ def show_bi_assistant():
 
                     if figure:
                         st.plotly_chart(figure, use_container_width=True)
+                        
+                        # Adicionar botão de exportar como PNG
+                        st.markdown(
+                            get_image_download_link(
+                                figure,
+                                f"grafico_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                                "📥 Clique aqui para baixar como PNG",
+                            ),
+                            unsafe_allow_html=True,
+                        )
+
                         # Armazenar figura no histórico
                         st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
                             {
@@ -215,7 +227,7 @@ def show_bi_assistant():
                     )
 
     st.markdown(
-        f"<div class='footer'>Desenvolvido para Análise de Dados Caçula © {datetime.now().year}</div>",
+        f"<div class='footer'>Desenvolvido para Análise de Dados © {datetime.now().year}</div>",
         unsafe_allow_html=True,
     )
 

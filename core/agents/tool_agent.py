@@ -14,6 +14,7 @@ from core.llm_base import BaseLLMAdapter
 from core.llm_gemini_adapter import GeminiLLMAdapter
 from core.llm_langchain_adapter import CustomLangChainLLM
 from core.utils.response_parser import parse_agent_response
+from core.utils.chart_saver import save_chart
 
 from core.tools.unified_data_tools import unified_tools
 from core.tools.date_time_tools import date_time_tools
@@ -37,7 +38,7 @@ class ToolAgent:
             [
                 (
                     "system",
-                    "Você é um assistente de BI versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
+                    "Você é um Agente de Negócios versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
                     "Sua principal função é usar as ferramentas disponíveis para responder diretamente às perguntas do usuário, sem adicionar comentários desnecessários. "
                     "Sempre que o usuário se referir a 'produto' ou 'item' em um contexto de busca por um código ou identificador, utilize a coluna 'ITEM' no filtro da ferramenta `consultar_dados`."
                     "Sempre que o usuário perguntar sobre um valor específico de qualquer coluna (como data de cadastro, fabricante, quantidade, etc.) "
@@ -48,6 +49,8 @@ class ToolAgent:
                     "- Para 'Qual a data da última compra do item 9?': `consultar_dados(coluna='ITEM', valor='9', coluna_retorno='DT ULTIMA COMPRA')`"
                     "- Para 'Qual o fabricante do produto com código 789?': `consultar_dados(coluna='CODIGO', valor='789', coluna_retorno='FABRICANTE')`"
                     "- Para 'Qual o ITEM do produto com ITEM 1?': `consultar_dados(coluna='ITEM', valor='1', coluna_retorno='ITEM')`"
+                    "Para criar um ranking dos produtos mais vendidos, use a ferramenta `gerar_ranking_produtos_mais_vendidos`. Você pode especificar o número de produtos no ranking com o parâmetro `top_n`."
+                    "Para criar um dashboard com múltiplos gráficos, use a ferramenta `gerar_dashboard_dinamico`. Forneça uma lista dos nomes das ferramentas de gráfico que você deseja incluir no argumento `graficos`."
                     "REGRA: Produto específico + gráfico → gerar_grafico_vendas_mensais_produto(codigo_produto=N)"
                     "IMPORTANTE: Quando uma ferramenta retornar uma resposta, repasse essa resposta DIRETAMENTE ao usuário. Não adicione comentários, resumos ou frases como 'Compreendi.'. Se a ferramenta retornar uma mensagem de erro ou indicar que não encontrou dados, repasse essa mensagem ao usuário."
                 ),
@@ -106,6 +109,7 @@ class ToolAgent:
                             self.logger.info(f"Extraindo dados do gráfico da ferramenta: {action.tool}")
                             final_output = observation["chart_data"]
                             response_type = "chart"
+                            save_chart(final_output)  # Salvar o gráfico
                             break
                         
                         # Lógica existente para ferramentas que retornam string

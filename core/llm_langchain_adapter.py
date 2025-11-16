@@ -126,7 +126,7 @@ class CustomLangChainLLM(BaseChatModel):
                 )
             elif isinstance(msg, ToolMessage):
                 tool_message_to_send = {
-                    "role": "model",
+                    "role": "function",
                     "tool_call_id": msg.tool_call_id,
                     "content": str(msg.content),
                 }

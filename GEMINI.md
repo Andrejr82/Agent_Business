@@ -1,6 +1,6 @@
 ## Project Overview
 
-This project is a Business Intelligence (BI) assistant named "Caçulinha BI". It's built with Python and features a web interface created with Streamlit. The primary goal of the project is to provide data insights and analysis in an accessible way.
+This project is a Business Intelligence (BI) assistant. It's built with Python and features a web interface created with Streamlit. The primary goal of the project is to provide data insights and analysis in an accessible way.
 
 The system uses a combination of technologies to achieve its goals:
 - **Backend:** Python, with Flask for the API (implied by `core/api` and common Python BI setups).

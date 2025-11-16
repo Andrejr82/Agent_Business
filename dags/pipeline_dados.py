@@ -39,8 +39,8 @@ def run_script(script_path):
 
 
 def main_pipeline():
-    """Define a sequência de execução do pipeline de dados do Caçulinha BI."""
-    print("Iniciando pipeline de dados do Caçulinha BI...")
+    """Define a sequência de execução do pipeline de dados do Agente de Negócios."""
+    print("Iniciando pipeline de dados do Agente de Negócios...")
 
     # Caminho base para os scripts, relativo ao diretório raiz do projeto
     # Em um orquestrador, esses caminhos seriam absolutos ou gerenciados pelo ambiente.
@@ -66,7 +66,7 @@ def main_pipeline():
         print("Falha na união dos arquivos Parquet. Abortando pipeline.")
         return
 
-    print("Pipeline de dados do Caçulinha BI concluído com sucesso!")
+    print("Pipeline de dados do Agente de Negócios concluído com sucesso!")
 
 
 if __name__ == "__main__":

@@ -187,6 +187,9 @@ def gerar_grafico_estoque_por_produto(
                         colorbar=dict(title="Estoque"),
                     ),
                     hovertemplate="<b>%{x}</b><br>Estoque: %{y}<extra></extra>",
+                    text=df_estoque[estoque_col],
+                    textposition='auto',
+                    texttemplate='%{text:.2s}'
                 )
             ]
         )
@@ -840,7 +843,7 @@ def gerar_grafico_vendas_mensais_produto(
             go.Scatter(
                 x=mes_labels,
                 y=vendas_mensais,
-                mode="lines+markers",
+                mode="lines+markers+text", # Adicionar 'text' ao modo
                 name="Vendas",
                 line=dict(color="#2563EB", width=3),
                 marker=dict(
@@ -854,6 +857,8 @@ def gerar_grafico_vendas_mensais_produto(
                 ),
                 fill="tozeroy",
                 fillcolor="rgba(37, 99, 235, 0.2)",
+                text=vendas_mensais,
+                textposition="top center"
             )
         )
 
@@ -922,6 +927,176 @@ def gerar_grafico_vendas_mensais_produto(
         return {"status": "error", "message": f"Erro ao gerar gráfico: {str(e)}"}
 
 
+@tool
+def gerar_ranking_produtos_mais_vendidos(top_n: int = 10) -> Dict[str, Any]:
+    """
+    Gera um gráfico de barras horizontais com o ranking dos produtos mais vendidos no ano.
+    Útil para identificar os produtos mais populares.
+
+    Args:
+        top_n: O número de produtos a serem incluídos no ranking (padrão: 10).
+
+    Returns:
+        Dicionário com o gráfico de ranking e dados.
+    """
+    logger.info(f"Gerando ranking dos {top_n} produtos mais vendidos.")
+
+    try:
+        manager = get_data_manager()
+        df = manager.get_data()
+
+        if df is None or df.empty:
+            return {"status": "error", "message": "Não foi possível carregar dados."}
+
+        mes_cols = [col for col in df.columns if 'VENDA QTD' in col]
+        if not mes_cols:
+            return {"status": "error", "message": "Nenhuma coluna de vendas mensais encontrada."}
+
+        # Calcular vendas totais
+        df['VENDAS_TOTAIS'] = df[mes_cols].sum(axis=1)
+
+        # Preparar dados para o gráfico
+        ranking_df = df.sort_values('VENDAS_TOTAIS', ascending=False).head(top_n)
+        ranking_df = ranking_df.sort_values('VENDAS_TOTAIS', ascending=True) # Para exibição correta no gráfico de barras horizontal
+
+        # Criar gráfico
+        fig = go.Figure(go.Bar(
+            x=ranking_df['VENDAS_TOTAIS'],
+            y=ranking_df['DESCRIÇÃO'],
+            orientation='h',
+            marker=dict(color='#2563EB'),
+            text=ranking_df['VENDAS_TOTAIS'],
+            textposition='auto',
+            texttemplate='%{text:.2s}'
+        ))
+
+        fig = _apply_chart_customization(
+            fig, title=f"Top {top_n} Produtos Mais Vendidos"
+        )
+        fig.update_layout(
+            yaxis=dict(tickmode='linear'),
+            xaxis_title="Total de Vendas (Unidades)",
+            yaxis_title="Produto"
+        )
+
+        return {
+            "status": "success",
+            "chart_type": "bar_horizontal",
+            "chart_data": _export_chart_to_json(fig),
+            "summary": {
+                "top_n": top_n,
+                "produtos": ranking_df[['DESCRIÇÃO', 'VENDAS_TOTAIS']].to_dict('records')
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar ranking de produtos: {e}", exc_info=True)
+        return {"status": "error", "message": f"Erro ao gerar ranking: {str(e)}"}
+
+
+@tool
+def gerar_dashboard_dinamico(graficos: list) -> Dict[str, Any]:
+    """
+    Gera um dashboard dinâmico com uma seleção de gráficos.
+
+    Args:
+        graficos: Uma lista dos nomes das ferramentas de gráfico a serem incluídas.
+                  Exemplos de nomes de ferramentas válidas:
+                  - 'gerar_grafico_vendas_por_categoria'
+                  - 'gerar_grafico_estoque_por_produto'
+                  - 'gerar_comparacao_precos_categorias'
+                  - 'gerar_analise_distribuicao_estoque'
+                  - 'gerar_grafico_pizza_categorias'
+                  - 'gerar_ranking_produtos_mais_vendidos'
+
+    Returns:
+        Dicionário com o dashboard e múltiplos gráficos.
+    """
+    logger.info(f"Gerando dashboard dinâmico com os seguintes gráficos: {graficos}")
+
+    if not graficos:
+        return {"status": "error", "message": "Nenhum gráfico especificado para o dashboard."}
+
+    from plotly.subplots import make_subplots
+    import math
+    import json
+
+    num_graficos = len(graficos)
+    if num_graficos > 4:
+        return {"status": "error", "message": "O dashboard dinâmico suporta no máximo 4 gráficos."}
+    
+    rows = math.ceil(num_graficos / 2)
+    cols = 2 if num_graficos > 1 else 1
+    
+    # Mapeamento de nomes de ferramentas para funções
+    tool_map = {
+        'gerar_grafico_vendas_por_categoria': gerar_grafico_vendas_por_categoria,
+        'gerar_grafico_estoque_por_produto': gerar_grafico_estoque_por_produto,
+        'gerar_comparacao_precos_categorias': gerar_comparacao_precos_categorias,
+        'gerar_analise_distribuicao_estoque': gerar_analise_distribuicao_estoque,
+        'gerar_grafico_pizza_categorias': gerar_grafico_pizza_categorias,
+        'gerar_ranking_produtos_mais_vendidos': gerar_ranking_produtos_mais_vendidos,
+    }
+
+    figuras = []
+    titulos = []
+    for nome_ferramenta in graficos:
+        if nome_ferramenta in tool_map:
+            try:
+                resultado = tool_map[nome_ferramenta].invoke({})
+                if resultado.get("status") == "success":
+                    chart_data = json.loads(resultado["chart_data"])
+                    figura_individual = go.Figure(chart_data)
+                    figuras.append(figura_individual)
+                    titulos.append(figura_individual.layout.title.text)
+                else:
+                    logger.warning(f"A ferramenta '{nome_ferramenta}' falhou: {resultado.get('message')}")
+            except Exception as e:
+                logger.error(f"Erro ao executar a ferramenta '{nome_ferramenta}': {e}", exc_info=True)
+    
+    if not figuras:
+        return {"status": "error", "message": "Nenhum dos gráficos solicitados pôde ser gerado."}
+
+    # Recalcular layout com base nos gráficos gerados com sucesso
+    num_graficos = len(figuras)
+    rows = math.ceil(num_graficos / 2)
+    cols = 2 if num_graficos > 1 else 1
+
+    fig = make_subplots(
+        rows=rows, 
+        cols=cols, 
+        subplot_titles=titulos,
+        vertical_spacing=0.15, # Aumentar espaçamento vertical
+        horizontal_spacing=0.1 # Aumentar espaçamento horizontal
+    )
+
+    for i, figura_individual in enumerate(figuras):
+        row = i // cols + 1
+        col = i % cols + 1
+        for trace in figura_individual.data:
+            fig.add_trace(trace, row=row, col=col)
+
+    fig.update_layout(
+        title_text="Dashboard Dinâmico",
+        height=450 * rows, # Ajustar altura
+        showlegend=False,
+        template=_get_theme_template(),
+        margin=dict(l=40, r=40, t=120, b=40), # Adicionar margens
+    )
+    # Ajustar tamanho da fonte dos subtítulos
+    fig.update_annotations(font_size=14)
+
+    return {
+        "status": "success",
+        "chart_type": "dashboard",
+        "chart_data": _export_chart_to_json(fig),
+        "summary": {
+            "total_graficos": len(figuras),
+            "graficos_incluidos": titulos,
+        },
+    }
+
+
 # Lista de todas as ferramentas de gráficos disponíveis
 chart_tools = [
     gerar_grafico_vendas_por_categoria,
@@ -933,4 +1108,6 @@ chart_tools = [
     gerar_grafico_vendas_por_produto,
     gerar_grafico_vendas_mensais_produto,
     gerar_grafico_automatico,
+    gerar_ranking_produtos_mais_vendidos,
+    gerar_dashboard_dinamico,
 ]

@@ -39,7 +39,7 @@ class GraphAgent:
         tool_names = ", ".join([t.name for t in self.tools])
 
         return (
-            "Você é Caçulinha, um assistente de BI especialista em SQL Server.\n"
+            "Você é um Agente de Negócios especialista em SQL Server.\n"
             "Seu papel é responder perguntas executando consultas SELECT seguras.\n"
             f"Schema do Banco: {schema}\n"
             f"Ferramentas: {tool_names}\n"
