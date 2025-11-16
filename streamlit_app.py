@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -177,24 +178,34 @@ def show_bi_assistant():
                         }
                     )
                 elif response["type"] == "chart":
-                    # Se eh uma figura Plotly, renderizar
-                    if HAS_PLOTLY and isinstance(response["output"], go.Figure):
-                        st.plotly_chart(response["output"], use_container_width=True)
+                    figure = None
+                    # Se a saída for uma string JSON, converter para figura
+                    if isinstance(response["output"], str):
+                        try:
+                            figure = go.Figure(json.loads(response["output"]))
+                        except Exception as e:
+                            st.error(f"Erro ao decodificar o gráfico: {e}")
+                    # Se já for uma figura Plotly
+                    elif HAS_PLOTLY and isinstance(response["output"], go.Figure):
+                        figure = response["output"]
+
+                    if figure:
+                        st.plotly_chart(figure, use_container_width=True)
                         # Armazenar figura no histórico
                         st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
                             {
                                 "role": ROLES["ASSISTANT"],
-                                "output": response["output"],
+                                "output": figure,
                                 "type": "chart",
                             }
                         )
                     else:
-                        # Fallback se não for figura
-                        st.error("Erro ao processar gráfico")
+                        # Fallback se não for figura ou JSON válido
+                        st.error("Erro ao processar gráfico: formato inválido.")
                         st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
                             {
                                 "role": ROLES["ASSISTANT"],
-                                "output": "Erro ao gerar gráfico",
+                                "output": "Erro ao gerar gráfico: formato inválido.",
                             }
                         )
                 else:

@@ -92,43 +92,40 @@ class ToolAgent:
             self.logger.info(f"CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {response}")
 
             final_output = response.get("output", "Não foi possível gerar uma resposta.")
+            response_type = "text" # Padrão
 
             # Verificar se há passos intermediários e extrair a saída da ferramenta se aplicável
             if "intermediate_steps" in response and response["intermediate_steps"]:
                 for step in reversed(response["intermediate_steps"]):
-                    # intermediate_steps é uma lista de tuplas (AgentAction, observation)
                     if isinstance(step, tuple) and len(step) == 2:
                         action, observation = step
-                        # Se a ação foi uma chamada de ferramenta e a observação é uma string
-                        if isinstance(action, AgentAction) and isinstance(observation, str):
-                            # Verificar se a ferramenta consultada foi 'consultar_dados'
+                        
+                        # Se a observação for um dicionário de uma ferramenta de gráfico bem-sucedida
+                        if isinstance(observation, dict) and observation.get("status") == "success" and "chart_data" in observation:
+                            self.logger.info(f"Extraindo dados do gráfico da ferramenta: {action.tool}")
+                            final_output = observation["chart_data"]
+                            response_type = "chart"
+                            break
+                        
+                        # Lógica existente para ferramentas que retornam string
+                        elif isinstance(action, AgentAction) and isinstance(observation, str):
                             if action.tool == "consultar_dados":
                                 final_output = observation
                                 self.logger.info(f"Usando saída direta da ferramenta consultar_dados: {final_output}")
-                                break # Sair do loop após encontrar a saída da ferramenta
-                            # Para outras ferramentas que retornam string e queremos repassar diretamente
-                            # elif isinstance(observation, str):
-                            #     final_output = observation
-                            #     self.logger.info(f"Usando saída direta da ferramenta: {final_output}")
-                            #     break
-            
-            # Parse resposta para detectar gráficos (ainda pode ser relevante se o LLM gerar um gráfico)
-            response_type, processed = parse_agent_response(final_output)
+                                break
 
-            self.logger.info(f"Resposta processada como tipo: {response_type}")
-
-            # Se for gráfico, retorna a figura Plotly diretamente
+            # Se o tipo de resposta for gráfico, retorna diretamente
             if response_type == "chart":
                 return {
                     "type": "chart",
-                    "output": processed.get("output", "Erro ao gerar gráfico"),
+                    "output": final_output,
                 }
 
+            # Processamento legado para texto
+            response_type, processed = parse_agent_response(final_output)
             return {
                 "type": response_type,
-                "output": processed.get(
-                    "output", final_output # Fallback para final_output se processed.get("output") for None
-                ),
+                "output": processed.get("output", final_output),
             }
 
         except Exception as e:

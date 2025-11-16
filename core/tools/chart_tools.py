@@ -70,7 +70,7 @@ def gerar_grafico_vendas_por_categoria(
     limite: int = 10, ordenar_por: str = "descendente"
 ) -> Dict[str, Any]:
     """
-    Gera gráfico de barras com vendas por categoria.
+    Gera gráfico de barras com o total de produtos por grupo (categoria).
     Útil para análise de categorias de produtos.
 
     Args:
@@ -80,21 +80,21 @@ def gerar_grafico_vendas_por_categoria(
     Returns:
         Dicionário com gráfico Plotly e dados
     """
-    logger.info(f"Gerando gráfico de vendas por categoria (limite={limite})")
+    logger.info(f"Gerando gráfico de produtos por grupo (limite={limite})")
 
     try:
         manager = get_data_manager()
-        df = manager.get_data("Admat_OPCOM", limit=5000)
+        df = manager.get_data()
 
-        if df is None or df.empty or "categoria" not in df.columns:
+        if df is None or df.empty or "GRUPO" not in df.columns:
             return {
                 "status": "error",
-                "message": "Não foi possível carregar dados de categoria.",
+                "message": "Não foi possível carregar dados de grupo ou a coluna 'GRUPO' não foi encontrada.",
             }
 
         # Preparar dados
-        vendas_por_categoria = df["categoria"].value_counts().reset_index()
-        vendas_por_categoria.columns = ["categoria", "total"]
+        vendas_por_categoria = df["GRUPO"].value_counts().reset_index()
+        vendas_por_categoria.columns = ["grupo", "total"]
 
         if ordenar_por == "ascendente":
             vendas_por_categoria = vendas_por_categoria.sort_values(
@@ -111,21 +111,21 @@ def gerar_grafico_vendas_por_categoria(
         chart_generator = AdvancedChartGenerator()
         fig = chart_generator.create_segmentation_chart(
             df=df_chart,
-            segment_column="categoria",
+            segment_column="grupo",
             value_column="total",
             chart_type="donut",
         )
 
         # Customizações adicionais se necessário
-        fig.update_layout(title_text=f"Top {limite} Categorias por Volume de Vendas")
+        fig.update_layout(title_text=f"Top {limite} Grupos por Quantidade de Produtos")
 
         return {
             "status": "success",
             "chart_type": "donut",
             "chart_data": _export_chart_to_json(fig),
             "summary": {
-                "total_categorias": len(df_chart),
-                "categorias": df_chart.set_index("categoria")["total"].to_dict(),
+                "total_grupos": len(df_chart),
+                "grupos": df_chart.set_index("grupo")["total"].to_dict(),
                 "total_itens": int(df_chart["total"].sum()),
             },
         }
@@ -153,53 +153,24 @@ def gerar_grafico_estoque_por_produto(
 
     try:
         manager = get_data_manager()
-
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        df = manager.get_data()
 
         if df is None or df.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
 
-        # Encontrar coluna de estoque
-        estoque_col = None
-        for col in df.columns:
-            if (
-                "est" in col.lower()
-                or "stock" in col.lower()
-                or "quantidade" in col.lower()
-            ):
-                estoque_col = col
-                break
+        # As colunas de estoque e nome são 'QTD' e 'DESCRIÇÃO'
+        estoque_col = 'QTD'
+        nome_col = 'DESCRIÇÃO'
 
-        # Encontrar coluna de nome/produto
-        nome_col = None
-        for col in df.columns:
-            if (
-                "nome" in col.lower()
-                or "product" in col.lower()
-                or "descricao" in col.lower()
-            ):
-                nome_col = col
-                break
-
-        if not estoque_col or not nome_col:
+        if not estoque_col in df.columns or not nome_col in df.columns:
             return {
                 "status": "error",
-                "message": "Colunas de estoque e/ou nome não encontradas",
+                "message": "Colunas 'QTD' e/ou 'DESCRIÇÃO' não encontradas",
             }
 
         # Preparar dados
         df_estoque = df[[nome_col, estoque_col]].copy()
+        df_estoque[estoque_col] = pd.to_numeric(df_estoque[estoque_col], errors='coerce').fillna(0)
         df_estoque = df_estoque[df_estoque[estoque_col] >= minimo_estoque]
         df_estoque = df_estoque.sort_values(estoque_col, ascending=False).head(limite)
 
@@ -251,50 +222,35 @@ def gerar_grafico_estoque_por_produto(
 @tool
 def gerar_comparacao_precos_categorias() -> Dict[str, Any]:
     """
-    Gera gráfico de comparação de preços médios por categoria.
+    Gera gráfico de comparação de preços médios por grupo (categoria).
     Útil para análise de precificação.
 
     Returns:
         Dicionário com gráfico comparativo de preços
     """
-    logger.info("Gerando gráfico de comparação de preços")
+    logger.info("Gerando gráfico de comparação de preços por grupo")
 
     try:
         manager = get_data_manager()
-
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        df = manager.get_data()
 
         if df is None or df.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
 
-        # Encontrar colunas
-        categoria_col = None
-        preco_col = None
+        # As colunas de categoria e preço são 'GRUPO' e 'VENDA UNIT R$'
+        categoria_col = 'GRUPO'
+        preco_col = 'VENDA UNIT R$'
 
-        for col in df.columns:
-            if "categ" in col.lower():
-                categoria_col = col
-            if "preco" in col.lower() or "price" in col.lower():
-                preco_col = col
-
-        if not categoria_col or not preco_col:
+        if not categoria_col in df.columns or not preco_col in df.columns:
             return {
                 "status": "error",
-                "message": "Colunas de categoria e/ou preço não encontradas",
+                "message": "Colunas 'GRUPO' e/ou 'VENDA UNIT R$' não encontradas",
             }
 
         # Calcular preço médio por categoria
+        df[preco_col] = pd.to_numeric(df[preco_col], errors='coerce')
+        df = df.dropna(subset=[preco_col])
+        
         preco_medio = (
             df.groupby(categoria_col)[preco_col]
             .agg(["mean", "min", "max", "count"])
@@ -326,10 +282,10 @@ def gerar_comparacao_precos_categorias() -> Dict[str, Any]:
         )
 
         fig = _apply_chart_customization(
-            fig, title="Comparação de Preços por Categoria", show_legend=True
+            fig, title="Comparação de Preços por Grupo", show_legend=True
         )
 
-        fig.update_xaxes(title_text="Categoria")
+        fig.update_xaxes(title_text="Grupo")
         fig.update_yaxes(title_text="Preço (R$)")
         fig.update_layout(xaxis_tickangle=-45, height=500)
 
@@ -338,11 +294,11 @@ def gerar_comparacao_precos_categorias() -> Dict[str, Any]:
             "chart_type": "bar_line_combo",
             "chart_data": _export_chart_to_json(fig),
             "summary": {
-                "categorias": len(preco_medio),
+                "grupos": len(preco_medio),
                 "preco_medio_geral": float(df[preco_col].mean()),
                 "preco_maximo": float(preco_medio["max"].max()),
                 "preco_minimo": float(preco_medio["min"].min()),
-                "categorias_data": preco_medio.to_dict("records"),
+                "grupos_data": preco_medio.to_dict("records"),
             },
         }
     except Exception as e:
@@ -363,32 +319,16 @@ def gerar_analise_distribuicao_estoque() -> Dict[str, Any]:
 
     try:
         manager = get_data_manager()
-
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        df = manager.get_data()
 
         if df is None or df.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
 
-        # Encontrar coluna de estoque
-        estoque_col = None
-        for col in df.columns:
-            if "est" in col.lower() or "stock" in col.lower():
-                estoque_col = col
-                break
+        # A coluna de estoque é 'QTD'
+        estoque_col = 'QTD'
 
-        if not estoque_col:
-            return {"status": "error", "message": "Coluna de estoque não encontrada"}
+        if not estoque_col in df.columns:
+            return {"status": "error", "message": "Coluna 'QTD' não encontrada"}
 
         # Converter para numérico
         df[estoque_col] = pd.to_numeric(df[estoque_col], errors="coerce")
@@ -462,42 +402,26 @@ def gerar_analise_distribuicao_estoque() -> Dict[str, Any]:
 @tool
 def gerar_grafico_pizza_categorias() -> Dict[str, Any]:
     """
-    Gera gráfico de pizza mostrando proporção de produtos por categoria.
+    Gera gráfico de pizza mostrando proporção de produtos por grupo (categoria).
     Útil para visualizar distribuição percentual.
 
     Returns:
         Dicionário com gráfico de pizza e proporções
     """
-    logger.info("Gerando gráfico de pizza")
+    logger.info("Gerando gráfico de pizza por grupo")
 
     try:
         manager = get_data_manager()
-
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        df = manager.get_data()
 
         if df is None or df.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
 
-        # Encontrar coluna de categoria
-        categoria_col = None
-        for col in df.columns:
-            if "categ" in col.lower():
-                categoria_col = col
-                break
+        # A coluna de categoria é 'GRUPO'
+        categoria_col = 'GRUPO'
 
-        if not categoria_col:
-            return {"status": "error", "message": "Coluna de categoria não encontrada"}
+        if not categoria_col in df.columns:
+            return {"status": "error", "message": "Coluna 'GRUPO' não encontrada"}
 
         # Contar por categoria
         categorias = df[categoria_col].value_counts()
@@ -514,7 +438,7 @@ def gerar_grafico_pizza_categorias() -> Dict[str, Any]:
         )
 
         fig = _apply_chart_customization(
-            fig, title="Distribuição de Produtos por Categoria"
+            fig, title="Distribuição de Produtos por Grupo"
         )
 
         fig.update_layout(height=600)
@@ -547,19 +471,7 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
 
     try:
         manager = get_data_manager()
-
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=5000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
+        df = manager.get_data()
 
         if df is None or df.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
@@ -567,37 +479,29 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
         from plotly.subplots import make_subplots
 
         # Encontrar colunas
-        categoria_col = None
-        estoque_col = None
-        preco_col = None
+        categoria_col = 'GRUPO'
+        estoque_col = 'QTD'
+        preco_col = 'VENDA UNIT R$'
+        nome_col = 'DESCRIÇÃO'
 
-        for col in df.columns:
-            if "categ" in col.lower():
-                categoria_col = col
-            elif "est" in col.lower():
-                estoque_col = col
-            elif "preco" in col.lower():
-                preco_col = col
 
-        if not all([categoria_col, estoque_col]):
+        if not all([categoria_col in df.columns, estoque_col in df.columns, preco_col in df.columns, nome_col in df.columns]):
             return {"status": "error", "message": "Colunas necessárias não encontradas"}
 
         # Preparar dados
         df_conv = df.copy()
-        if estoque_col:
-            df_conv[estoque_col] = pd.to_numeric(df_conv[estoque_col], errors="coerce")
-        if preco_col:
-            df_conv[preco_col] = pd.to_numeric(df_conv[preco_col], errors="coerce")
+        df_conv[estoque_col] = pd.to_numeric(df_conv[estoque_col], errors="coerce")
+        df_conv[preco_col] = pd.to_numeric(df_conv[preco_col], errors="coerce")
 
         # Criar subplots 2x2
         fig = make_subplots(
             rows=2,
             cols=2,
             subplot_titles=(
-                "Produtos por Categoria",
+                "Produtos por Grupo",
                 "Top 10 Produtos - Estoque",
                 "Distribuição de Estoque",
-                "Preço Médio por Categoria",
+                "Preço Médio por Grupo",
             ),
             specs=[
                 [{"type": "pie"}, {"type": "bar"}],
@@ -609,7 +513,7 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
         cat_counts = df_conv[categoria_col].value_counts()
         fig.add_trace(
             go.Pie(
-                labels=cat_counts.index, values=cat_counts.values, name="Categorias"
+                labels=cat_counts.index, values=cat_counts.values, name="Grupos"
             ),
             row=1,
             col=1,
@@ -617,9 +521,6 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
 
         # Gráfico 2: Top 10 Estoque
         top_estoque = df_conv.nlargest(10, estoque_col)
-        nome_col = next(
-            (c for c in df_conv.columns if "nome" in c.lower()), estoque_col
-        )
         fig.add_trace(
             go.Bar(
                 x=top_estoque[nome_col],
@@ -643,23 +544,22 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
             col=1,
         )
 
-        # Gráfico 4: Preço médio (se disponível)
-        if preco_col:
-            preco_med = (
-                df_conv.groupby(categoria_col)[preco_col]
-                .mean()
-                .sort_values(ascending=False)
-            )
-            fig.add_trace(
-                go.Bar(
-                    x=preco_med.index,
-                    y=preco_med.values,
-                    name="Preço Médio",
-                    marker_color="lightyellow",
-                ),
-                row=2,
-                col=2,
-            )
+        # Gráfico 4: Preço médio
+        preco_med = (
+            df_conv.groupby(categoria_col)[preco_col]
+            .mean()
+            .sort_values(ascending=False)
+        )
+        fig.add_trace(
+            go.Bar(
+                x=preco_med.index,
+                y=preco_med.values,
+                name="Preço Médio",
+                marker_color="lightyellow",
+            ),
+            row=2,
+            col=2,
+        )
 
         # Atualizar layout
         fig.update_layout(
@@ -669,10 +569,13 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
             template=_get_theme_template(),
         )
 
-        fig.update_xaxes(title_text="Categoria", row=1, col=2)
+        fig.update_xaxes(title_text="Produto", row=1, col=2)
         fig.update_xaxes(title_text="Estoque", row=2, col=1)
         fig.update_yaxes(title_text="Quantidade", row=1, col=2)
         fig.update_yaxes(title_text="Frequência", row=2, col=1)
+        fig.update_xaxes(title_text="Grupo", row=2, col=2)
+        fig.update_yaxes(title_text="Preço Médio (R$)", row=2, col=2)
+
 
         return {
             "status": "success",
@@ -692,170 +595,22 @@ def gerar_dashboard_analise_completa() -> Dict[str, Any]:
 
 @tool
 def gerar_grafico_vendas_por_produto(
-    codigo_produto: int = 59294, unidade: str = "SCR"
+    codigo_produto: int,
 ) -> Dict[str, Any]:
     """
     Gera gráfico de série temporal de vendas de um produto específico.
-    Mostra evolução de vendas mensais com linha e markers.
+    Este é um alias para gerar_grafico_vendas_mensais_produto.
 
     Args:
-        codigo_produto: Código do produto (padrão: 59294)
-        unidade: Unidade de venda (padrão: SCR)
+        codigo_produto: Código do produto (ITEM)
 
     Returns:
         Dicionário com gráfico de série temporal e análise
     """
     logger.info(
-        f"Gerando gráfico de vendas do produto {codigo_produto} "
-        f"na unidade {unidade}"
+        f"Gerando gráfico de vendas do produto {codigo_produto} (alias)"
     )
-
-    try:
-        manager = get_data_manager()
-
-        # Tentar obter dados
-        df = None
-        tabelas = ["admmatao", "ADMAT", "ADMAT_REBUILT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df = manager.get_data(tabela, limit=10000)
-                if not df.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar {tabela}: {e}")
-                continue
-
-        if df is None or df.empty:
-            return {"status": "error", "message": "Não foi possível carregar dados"}
-
-        # Normalizar nomes de colunas para lowercase
-        df.columns = df.columns.str.lower()
-
-        # Procurar colunas de código e dados de vendas
-        codigo_col = None
-        data_col = None
-        quantidade_col = None
-
-        for col in df.columns:
-            if "codigo" in col or "product" in col or "sku" in col:
-                codigo_col = col
-            if "data" in col or "mes" in col or "month" in col:
-                data_col = col
-            if "venda" in col or "quantidade" in col or "sales" in col:
-                quantidade_col = col
-
-        # Se não encontrar, usar padrões conhecidos
-        if not codigo_col:
-            codigo_col = next((c for c in df.columns if "codigo" in c), None)
-        if not data_col:
-            data_col = next((c for c in df.columns if "data" in c or "date" in c), None)
-        if not quantidade_col:
-            quantidade_col = next(
-                (c for c in df.columns if "quant" in c or "sales" in c), None
-            )
-
-        if not all([codigo_col, data_col, quantidade_col]):
-            # Retornar sumário do produto com dados disponíveis
-            return {
-                "status": "success",
-                "chart_type": "vendas_produto",
-                "message": (
-                    f"Dados do produto {codigo_produto} encontrados, "
-                    "mas estrutura não está em série temporal. "
-                    "Dados brutos fornecidos para análise."
-                ),
-                "summary": {
-                    "codigo_produto": codigo_produto,
-                    "unidade": unidade,
-                    "dados_disponiveis": len(df),
-                    "colunas": list(df.columns),
-                },
-            }
-
-        # Filtrar por código de produto
-        df_produto = df[df[codigo_col] == codigo_produto].copy()
-
-        if df_produto.empty:
-            return {
-                "status": "error",
-                "message": f"Produto {codigo_produto} não encontrado",
-            }
-
-        # Converter data para datetime
-        try:
-            df_produto[data_col] = pd.to_datetime(df_produto[data_col])
-        except Exception as e:
-            logger.warning(f"Erro ao converter data: {e}")
-
-        # Converter quantidade para numérico
-        df_produto[quantidade_col] = pd.to_numeric(
-            df_produto[quantidade_col], errors="coerce"
-        )
-        df_produto = df_produto.dropna(subset=[quantidade_col])
-
-        # Agrupar por data se necessário
-        if len(df_produto) > 1:
-            df_vendas = df_produto.groupby(data_col)[quantidade_col].sum().reset_index()
-            df_vendas = df_vendas.sort_values(data_col)
-        else:
-            df_vendas = df_produto[[data_col, quantidade_col]].copy()
-
-        # Criar gráfico de linha
-        fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatter(
-                x=df_vendas[data_col],
-                y=df_vendas[quantidade_col],
-                mode="lines+markers",
-                name="Vendas",
-                line=dict(color="#1f77b4", width=3),
-                marker=dict(size=8, color="#1f77b4", line=dict(width=2, color="white")),
-                hovertemplate=(
-                    "<b>Data</b>: %{x|%d/%m/%Y}<br>"
-                    "<b>Quantidade</b>: %{y} unidades<extra></extra>"
-                ),
-                fill="tozeroy",
-                fillcolor="rgba(31, 119, 180, 0.2)",
-            )
-        )
-
-        fig = _apply_chart_customization(
-            fig, title=(f"Vendas do Produto {codigo_produto} " f"na Unidade {unidade}")
-        )
-
-        fig.update_xaxes(title_text="Data", type="date", tickformat="%d/%m/%Y")
-        fig.update_yaxes(title_text="Quantidade (unidades)")
-
-        fig.update_layout(height=600)
-
-        # Calcular estatísticas
-        total_vendas = df_vendas[quantidade_col].sum()
-        venda_media = df_vendas[quantidade_col].mean()
-        venda_max = df_vendas[quantidade_col].max()
-        venda_min = df_vendas[quantidade_col].min()
-
-        return {
-            "status": "success",
-            "chart_type": "line_temporal",
-            "chart_data": _export_chart_to_json(fig),
-            "summary": {
-                "codigo_produto": codigo_produto,
-                "unidade": unidade,
-                "periodos": len(df_vendas),
-                "total_vendas": int(total_vendas),
-                "venda_media": float(venda_media),
-                "venda_maxima": int(venda_max),
-                "venda_minima": int(venda_min),
-                "primeira_data": str(df_vendas[data_col].min()),
-                "ultima_data": str(df_vendas[data_col].max()),
-            },
-        }
-    except Exception as e:
-        logger.error(f"Erro ao gerar gráfico de vendas: {e}", exc_info=True)
-        return {"status": "error", "message": f"Erro ao gerar gráfico: {str(e)}"}
+    return gerar_grafico_vendas_mensais_produto(codigo_produto=codigo_produto)
 
 
 @tool
@@ -1014,15 +769,14 @@ def gerar_grafico_automatico(descricao: str) -> Dict[str, Any]:
 
 @tool
 def gerar_grafico_vendas_mensais_produto(
-    codigo_produto: int = 59294, unidade_filtro: str = ""
+    codigo_produto: int,
 ) -> Dict[str, Any]:
     """
     Gera gráfico de vendas mensais para um produto específico.
-    Trabalha com estrutura pivotada de dados (mes_01 até mes_12).
+    Trabalha com a estrutura de dados da Filial Madureira.
 
     Args:
-        codigo_produto: Código do produto (padrão: 59294)
-        unidade_filtro: Unidade para filtrar (default: vazio)
+        codigo_produto: Código do produto (ITEM)
 
     Returns:
         Dicionário com gráfico de vendas mensais
@@ -1031,44 +785,17 @@ def gerar_grafico_vendas_mensais_produto(
 
     try:
         manager = get_data_manager()
-
-        # Identificar a coluna de código primeiro (de forma agnóstica)
-        # Esta é uma suposição que precisa ser validada.
-        # O ideal seria ter um mapeamento de metadados.
-        # codigo_col = "codigo_produto" # Removido
-
-        df_raw = None
-        tabelas = ["ADMAT_REBUILT", "admmatao", "ADMAT", "master_catalog"]
-
-        for tabela in tabelas:
-            try:
-                df_raw = manager.get_data(tabela, limit=10000)
-                if not df_raw.empty:
-                    logger.info(f"Dados carregados de {tabela}")
-                    break
-            except Exception as e:
-                logger.debug(f"Erro ao tentar carregar dados de {tabela}: {e}")
-                continue
+        df_raw = manager.get_data()
 
         if df_raw is None or df_raw.empty:
             return {"status": "error", "message": "Não foi possível carregar dados"}
 
-        # Normalizar nomes de colunas para lowercase
-        df_raw.columns = df_raw.columns.str.lower()
-
-        # Tentar encontrar a coluna de código do produto
-        codigo_col = None
-        for col in df_raw.columns:
-            if "codigo" in col or "product_code" in col or "sku" in col:
-                codigo_col = col
-                break
-
-        if not codigo_col:
-            return {
-                "status": "error",
-                "message": "Coluna de código do produto não encontrada nos dados.",
-            }
-
+        # A coluna de código do produto é 'ITEM'
+        codigo_col = 'ITEM'
+        
+        # Converter a coluna 'ITEM' para numérico para garantir a comparação
+        df_raw[codigo_col] = pd.to_numeric(df_raw[codigo_col], errors='coerce')
+        
         # Filtrar por código de produto
         df_produto = df_raw[df_raw[codigo_col] == codigo_produto].copy()
 
@@ -1076,64 +803,35 @@ def gerar_grafico_vendas_mensais_produto(
             return {
                 "status": "error",
                 "message": (
-                    f"Produto {codigo_produto} não encontrado em nenhuma fonte de dados. "
+                    f"Produto com ITEM {codigo_produto} não encontrado. "
                     "Verifique o código informado."
                 ),
             }
 
-        # Normalizar nomes de colunas
-        # df_produto.columns = df_produto.columns.str.lower() # Já feito no df_raw
-
-        # A coluna de código já foi usada no filtro, então podemos prosseguir
-        # com a lógica de negócio.
-
-        # Se houver filtro de unidade, aplicar
-        if unidade_filtro:
-            une_cols = [c for c in df_produto.columns if "une" in c]
-            if une_cols:
-                df_produto = df_produto[
-                    df_produto[une_cols[0]]
-                    .astype(str)
-                    .str.contains(unidade_filtro, case=False, na=False)
-                ]
-
-        if df_produto.empty:
-            return {
-                "status": "error",
-                "message": (
-                    f"Nenhum registro encontrado para produto "
-                    f"{codigo_produto} na unidade {unidade_filtro}"
-                ),
-            }
-
         # Extrair colunas de meses
-        mes_cols = sorted([c for c in df_produto.columns if c.startswith("mes_")])
+        mes_cols = {
+            'JAN': 'VENDA QTD JAN', 'FEV': 'VENDA QTD FEV', 'MAR': 'VENDA QTD MAR',
+            'ABR': 'VENDA QTD ABR', 'MAI': 'VENDA QTD MAI', 'JUN': 'VENDA QTD JUN',
+            'JUL': 'VENDA QTD JUL', 'AGO': 'VENDA QTD AGO', 'SET': 'VENDA QTD SET',
+            'OUT': 'VENDA QTD OUT', 'NOV': 'VENDA QTD NOV', 'DEZ': 'VENDA QTD DEZ'
+        }
+        
+        vendas_mensais = []
+        mes_labels = []
+        
+        for mes_abrev, col_name in mes_cols.items():
+            if col_name in df_produto.columns:
+                valor_bruto = df_produto[col_name].iloc[0]
+                valor_numerico = pd.to_numeric(valor_bruto, errors='coerce')
+                valor = 0 if pd.isna(valor_numerico) else valor_numerico
+                vendas_mensais.append(valor)
+                mes_labels.append(mes_abrev)
 
-        if not mes_cols:
+        if not vendas_mensais:
             return {
                 "status": "error",
-                "message": (
-                    "Colunas de meses não encontradas na " "estrutura de dados"
-                ),
+                "message": "Colunas de vendas mensais não encontradas na estrutura de dados.",
             }
-
-        # Preparar dados para gráfico
-        mes_labels = []
-        mes_numeros = []
-
-        for col in mes_cols:
-            mes_num = col.replace("mes_", "")
-            if mes_num == "parcial":
-                mes_labels.append("Parcial")
-            else:
-                mes_labels.append(f"Mês {mes_num}")
-            mes_numeros.append(mes_num)
-
-        # Agregar vendas por mês (caso tenha múltiplas unidades)
-        vendas_mensais = []
-        for col in mes_cols:
-            valores = pd.to_numeric(df_produto[col], errors="coerce").fillna(0)
-            vendas_mensais.append(valores.sum())
 
         # Criar gráfico
         fig = go.Figure()
@@ -1152,7 +850,7 @@ def gerar_grafico_vendas_mensais_produto(
                     symbol="circle",
                 ),
                 hovertemplate=(
-                    "<b>%{x}</b><br>" "Quantidade: %{y:,.0f} unidades<extra></extra>"
+                    "<b>Mês: %{x}</b><br>" "Quantidade: %{y:,.0f} unidades<extra></extra>"
                 ),
                 fill="tozeroy",
                 fillcolor="rgba(37, 99, 235, 0.2)",
@@ -1160,17 +858,18 @@ def gerar_grafico_vendas_mensais_produto(
         )
 
         # Adicionar linha de média
-        media_vendas = sum(vendas_mensais) / len(vendas_mensais)
-        fig.add_hline(
-            y=media_vendas,
-            line_dash="dash",
-            line_color="red",
-            annotation_text="Média",
-            annotation_position="right",
-        )
+        if vendas_mensais:
+            media_vendas = sum(vendas_mensais) / len(vendas_mensais)
+            fig.add_hline(
+                y=media_vendas,
+                line_dash="dash",
+                line_color="red",
+                annotation_text="Média",
+                annotation_position="right",
+            )
 
         fig = _apply_chart_customization(
-            fig, title=(f"Vendas Mensais - Produto {codigo_produto}")
+            fig, title=(f"Vendas Mensais - Produto ITEM {codigo_produto}")
         )
 
         fig.update_xaxes(title_text="Mês")
@@ -1179,15 +878,15 @@ def gerar_grafico_vendas_mensais_produto(
 
         # Calcular estatísticas
         total_vendas = sum(vendas_mensais)
-        venda_media = total_vendas / len(vendas_mensais)
-        venda_max = max(vendas_mensais)
-        venda_min = min(vendas_mensais)
-        venda_max_mes = mes_labels[vendas_mensais.index(venda_max)]
-        venda_min_mes = mes_labels[vendas_mensais.index(venda_min)]
+        venda_media = total_vendas / len(vendas_mensais) if vendas_mensais else 0
+        venda_max = max(vendas_mensais) if vendas_mensais else 0
+        venda_min = min(vendas_mensais) if vendas_mensais else 0
+        venda_max_mes = mes_labels[vendas_mensais.index(venda_max)] if vendas_mensais and venda_max > 0 else "N/A"
+        venda_min_mes = mes_labels[vendas_mensais.index(venda_min)] if vendas_mensais else "N/A"
 
         # Extrair informações adicionais do produto
         produto_info = {}
-        for col in ["nome_produto", "nome_categoria", "une_nome"]:
+        for col in ["DESCRIÇÃO", "FABRICANTE", "GRUPO"]:
             if col in df_produto.columns:
                 valor = df_produto[col].iloc[0]
                 produto_info[col] = str(valor)
@@ -1209,7 +908,7 @@ def gerar_grafico_vendas_mensais_produto(
                     if venda_media > 0
                     else 0
                 ),
-                "meses_analisados": len(mes_cols),
+                "meses_analisados": len(mes_labels),
                 "produto_info": produto_info,
                 "dados_mensais": {
                     mes_labels[i]: int(vendas_mensais[i])
