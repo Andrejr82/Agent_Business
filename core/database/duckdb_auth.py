@@ -1,49 +1,60 @@
 import duckdb
 import bcrypt
 import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from core.database.models import Base, User # Import Base and User
 
 DB_FILE = "data/users.db"
 DB_DIR = "data"
 SESSAO_MINUTOS = 60
 
+# Define the engine globally or pass it around
+# For simplicity, let's define it here, but a more robust solution might manage it differently.
+engine = create_engine(f"duckdb:///{DB_FILE}")
+Session = sessionmaker(bind=engine)
+
 def get_connection():
     """Cria e retorna uma conexão com o banco de dados DuckDB."""
     os.makedirs(DB_DIR, exist_ok=True)
+    # For SQLAlchemy, we don't directly return a duckdb connection object for ORM operations
+    # but rather a session. However, some functions still use direct duckdb.connect.
+    # We'll keep this for compatibility with existing direct duckdb calls.
     con = duckdb.connect(DB_FILE)
     return con
 
 def initialize_db():
     """Cria a tabela de usuários se ela não existir e adiciona um usuário admin padrão."""
-    con = get_connection()
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            username VARCHAR UNIQUE NOT NULL,
-            hashed_password VARCHAR NOT NULL,
-            role VARCHAR NOT NULL,
-            ativo BOOLEAN DEFAULT TRUE
-        );
-    """)
+    os.makedirs(DB_DIR, exist_ok=True) # Ensure directory exists
     
-    # Adicionar usuário admin padrão se não existir
+    # Create tables defined in Base.metadata
+    Base.metadata.create_all(engine)
+
+    session = Session()
     try:
-        # Verificar se já existe algum usuário
-        count = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if count == 0:
-            # Adicionar usuário admin padrão
-            admin_username = os.getenv("ADMIN_USERNAME", "admin")
+        # Adicionar usuário admin padrão se não existir
+        admin_username = os.getenv("ADMIN_USERNAME", "admin")
+        existing_admin = session.query(User).filter_by(username=admin_username).first()
+
+        if not existing_admin:
             admin_password = os.getenv("ADMIN_PASSWORD", "admin")
             hashed_password = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt())
-            con.execute(
-                "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
-                (admin_username, hashed_password.decode('utf-8'), "admin")
+            
+            new_admin = User(
+                username=admin_username,
+                password_hash=hashed_password.decode('utf-8'),
+                role="admin"
             )
-            con.commit()
+            session.add(new_admin)
+            session.commit()
             print(f"Usuário admin padrão '{admin_username}' criado com sucesso.")
+        else:
+            print(f"Usuário admin padrão '{admin_username}' já existe.")
     except Exception as e:
+        session.rollback()
         print(f"Erro ao adicionar usuário admin padrão: {e}")
     finally:
-        con.close()
+        session.close()
 
 def criar_usuario(username, password, role):
     """Cria um novo usuário no banco de dados."""
@@ -52,80 +63,120 @@ def criar_usuario(username, password, role):
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     
-    con = get_connection()
+    session = Session()
     try:
-        con.execute(
-            "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
-            (username, hashed_password.decode('utf-8'), role)
+        new_user = User(
+            username=username,
+            password_hash=hashed_password.decode('utf-8'),
+            role=role
         )
-        con.commit()
-    except duckdb.ConstraintException:
-        raise ValueError(f"Usuário '{username}' já existe.")
+        session.add(new_user)
+        session.commit()
+    except Exception as e: # Catching generic Exception for now, can be more specific
+        session.rollback()
+        if "UNIQUE constraint failed" in str(e): # DuckDB specific constraint error message
+            raise ValueError(f"Usuário '{username}' já existe.")
+        else:
+            raise
     finally:
-        con.close()
+        session.close()
 
 def get_user(username):
     """Busca um usuário pelo nome de usuário."""
-    con = get_connection()
-    # Use a try-finally para garantir que a conexão seja fechada
+    session = Session()
     try:
-        result = con.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        if result:
-            # Obter nomes das colunas da descrição do cursor
-            columns = [desc[0] for desc in con.description]
-            return dict(zip(columns, result))
+        user = session.query(User).filter_by(username=username).first()
+        if user:
+            return {
+                "id": user.id,
+                "username": user.username,
+                "password_hash": user.password_hash,
+                "role": user.role,
+                "ativo": user.ativo,
+                "tentativas_invalidas": user.tentativas_invalidas,
+                "bloqueado_ate": user.bloqueado_ate,
+                "ultimo_login": user.ultimo_login,
+                "redefinir_solicitado": user.redefinir_solicitado,
+                "redefinir_aprovado": user.redefinir_aprovado,
+            }
     finally:
-        con.close()
+        session.close()
     return None
 
 def get_all_users():
     """Retorna todos os usuários do banco de dados."""
-    con = get_connection()
+    session = Session()
     try:
-        # O fetchdf retorna um DataFrame do Pandas, que é conveniente para o Streamlit
-        users_df = con.execute("SELECT id, username, role, ativo FROM users").fetchdf()
-        # Converter para uma lista de dicionários para consistência
-        return users_df.to_dict('records')
+        users = session.query(User).all()
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role,
+                "ativo": user.ativo,
+            }
+            for user in users
+        ]
     finally:
-        con.close()
+        session.close()
 
 def update_user_role(user_id, new_role):
     """Atualiza o papel de um usuário."""
-    con = get_connection()
-    con.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
-    con.commit()
-    con.close()
+    session = Session()
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            user.role = new_role
+            session.commit()
+    finally:
+        session.close()
 
 def set_user_status(user_id, is_active):
     """Ativa ou desativa um usuário."""
-    con = get_connection()
-    con.execute("UPDATE users SET ativo = ? WHERE id = ?", (is_active, user_id))
-    con.commit()
-    con.close()
+    session = Session()
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            user.ativo = is_active
+            session.commit()
+    finally:
+        session.close()
 
 def reset_user_password(user_id, new_password):
     """Redefine a senha de um usuário."""
     hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    con = get_connection()
-    con.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (hashed_password.decode('utf-8'), user_id))
-    con.commit()
-    con.close()
+    session = Session()
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            user.password_hash = hashed_password.decode('utf-8')
+            session.commit()
+    finally:
+        session.close()
 
 def delete_user(user_id):
     """Exclui um usuário do banco de dados."""
-    con = get_connection()
-    con.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    con.commit()
-    con.close()
+    session = Session()
+    try:
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            session.delete(user)
+            session.commit()
+    finally:
+        session.close()
 
 def verify_user(username, password):
     """Verifica as credenciais de um usuário."""
-    user = get_user(username)
-    if user and user['ativo']:
-        hashed_password = user['hashed_password'].encode('utf-8')
-        if bcrypt.checkpw(password.encode('utf-8'), hashed_password):
-            return {"username": user["username"], "role": user["role"]}
+    session = Session()
+    try:
+        user = session.query(User).filter_by(username=username).first()
+        if user and user.ativo:
+            hashed_password = user.password_hash.encode('utf-8')
+            if bcrypt.checkpw(password.encode('utf-8'), hashed_password):
+                return {"username": user.username, "role": user.role}
+    finally:
+        session.close()
     return None
 
 # Inicializar o banco de dados na primeira importação
-initialize_db()
+# initialize_db() # Commented out to temporarily disable duckdb initialization
