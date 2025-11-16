@@ -39,6 +39,7 @@ class ToolAgent:
                     "system",
                     "Você é um assistente de BI versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
                     "Sua principal função é usar as ferramentas disponíveis para responder diretamente às perguntas do usuário, sem adicionar comentários desnecessários. "
+                    "Sempre que o usuário se referir a 'produto' ou 'item' em um contexto de busca por um código ou identificador, utilize a coluna 'ITEM' no filtro da ferramenta `consultar_dados`."
                     "Sempre que o usuário perguntar sobre um valor específico de qualquer coluna (como data de cadastro, fabricante, quantidade, etc.) "
                     "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna` (para o filtro), `valor` (do filtro) e `coluna_retorno` (a coluna cujo valor se deseja obter)."
                     "É importante que você use `consultar_dados` mesmo que a coluna usada para filtrar seja a mesma que a coluna que se deseja retornar."
