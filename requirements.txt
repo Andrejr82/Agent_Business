@@ -1,1 +1,7 @@
-duckdb-engine==0.17.0
+python-dotenv
+SQLAlchemy
+pyodbc
+streamlit
+langchain
+google-generativeai
+bcrypt

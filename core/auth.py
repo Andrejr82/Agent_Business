@@ -7,14 +7,8 @@ import streamlit as st
 import time
 import logging
 
-# Por padrão, usa DuckDB. Se variáveis de ambiente de SQL Server estiverem definidas, usa SQL Server.
-sql_server_enabled = bool(
-    os.getenv("DATABASE_URI") or (os.getenv("DB_SERVER") and os.getenv("DB_DRIVER"))
-)
-if sql_server_enabled:
-    from core.database import sql_server_auth_db as auth_db
-else:
-    from core.database import duckdb_auth as auth_db
+# Always use SQLite for authentication
+from core.database import sqlserver_auth as auth_db
 
 audit_logger = logging.getLogger("audit")
 
@@ -44,15 +38,13 @@ def login():
             password = st.text_input(
                 "Senha", type="password", placeholder="Digite sua senha"
             )
-            login_btn = st.form_submit_button(
-                "Entrar", use_container_width=True, type="primary"
-            )
+            login_btn = st.form_submit_button("Entrar", width='stretch', type="primary")
 
             if login_btn:
                 # Inicialização lazy do store de usuários (compatível com Parquet).
                 if "db_inicializado" not in st.session_state:
                     try:
-                        auth_db.init_db()
+                        auth_db.initialize_db() # Changed this line from init_db to initialize_db
                     except AttributeError:
                         if hasattr(auth_db, "init_store"):
                             auth_db.init_store()

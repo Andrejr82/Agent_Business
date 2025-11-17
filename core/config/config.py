@@ -17,7 +17,7 @@ class Config:
         load_dotenv(dotenv_path=dotenv_path, override=True)
     else:
         # Em um ambiente de produção ou CI/CD, as variáveis podem ser definidas diretamente.
-        # Adicionamos um log ou print para alertar que o .env não foi encontrado.
+        # Adicionamos um um log ou print para alertar que o .env não foi encontrado.
         print(
             f"Aviso: Arquivo .env não encontrado em '{dotenv_path}'. As configurações dependerão das variáveis de ambiente do sistema."
         )
@@ -32,6 +32,7 @@ class Config:
     DB_TRUST_SERVER_CERTIFICATE = os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")
     DB_ENCRYPT = os.getenv("DB_ENCRYPT", "no")
 
+
     # String de conexão para SQLAlchemy, construída dinamicamente
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
@@ -42,7 +43,7 @@ class Config:
         password_quoted = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ""
         driver_quoted = quote_plus(self.DB_DRIVER)
 
-        return (
+        uri = (
             f"mssql+pyodbc://{self.DB_USER}:{password_quoted}@{self.DB_SERVER}:{self.DB_PORT}/{self.DB_DATABASE}?"
             f"driver={driver_quoted}&TrustServerCertificate={self.DB_TRUST_SERVER_CERTIFICATE}"
             + (
@@ -51,6 +52,7 @@ class Config:
                 else ""
             )
         )
+        return uri
 
     # Modo de demonstração (sem acesso ao banco de dados)
     DEMO_MODE = os.getenv("DEMO_MODE", "False").lower() == "true"

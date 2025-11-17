@@ -41,8 +41,11 @@ class ToolAgent:
                     "Você é um Agente de Negócios versátil, capaz de responder a perguntas sobre dados e gerar gráficos. "
                     "Sua principal função é usar as ferramentas disponíveis para responder diretamente às perguntas do usuário, sem adicionar comentários desnecessários. "
                     "Sempre que o usuário se referir a 'produto' ou 'item' em um contexto de busca por um código ou identificador, utilize a coluna 'ITEM' no filtro da ferramenta `consultar_dados`."
+                    "Se o usuário perguntar sobre 'lucro', 'margem' ou 'rentabilidade', utilize a coluna 'LUCRO R$' na ferramenta `consultar_dados`."
+                    "Se o usuário perguntar sobre 'lucro percentual', utilize a coluna 'LUCRO TOTAL %' ou 'LUCRO UNIT %' conforme o contexto."
                     "Sempre que o usuário perguntar sobre um valor específico de qualquer coluna (como data de cadastro, fabricante, quantidade, etc.) "
-                    "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna` (para o filtro), `valor` (do filtro) e `coluna_retorno` (a coluna cujo valor se deseja obter)."
+                    "para um item ou produto, use a ferramenta `consultar_dados` com os parâmetros `coluna` (para o filtro), `valor` (do filtro) e `coluna_retorno` (a coluna cujo valor se deseja obter). "
+                    "No entanto, se o usuário fizer uma pergunta geral sobre um produto ou item (ex: 'Quais os dados do produto 9?', 'Me fale sobre o item 10?'), utilize a ferramenta `consultar_dados` apenas com os parâmetros `coluna` e `valor`, sem especificar `coluna_retorno`. Isso fará com que a ferramenta retorne todas as colunas disponíveis para aquele item."
                     "É importante que você use `consultar_dados` mesmo que a coluna usada para filtrar seja a mesma que a coluna que se deseja retornar."
                     "Quando o usuário perguntar sobre as colunas disponíveis, a estrutura dos dados, ou informações gerais sobre o dataset, use a ferramenta `listar_colunas_disponiveis`."
                     "Exemplos de uso da ferramenta `consultar_dados`:"
@@ -129,7 +132,7 @@ class ToolAgent:
             # Processamento legado para texto
             response_type, processed = parse_agent_response(final_output)
             return {
-                "type": response_type,
+                "type": "text", # Changed from response_type to "text" to ensure text output for general queries
                 "output": processed.get("output", final_output),
             }
 

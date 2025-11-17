@@ -1,4 +1,3 @@
-import duckdb
 import bcrypt
 import os
 from sqlalchemy import create_engine
@@ -11,17 +10,19 @@ SESSAO_MINUTOS = 60
 
 # Define the engine globally or pass it around
 # For simplicity, let's define it here, but a more robust solution might manage it differently.
-engine = create_engine(f"duckdb:///{DB_FILE}")
+engine = create_engine(f"sqlite:///{DB_FILE}") # Changed to SQLite
 Session = sessionmaker(bind=engine)
 
 def get_connection():
-    """Cria e retorna uma conexão com o banco de dados DuckDB."""
+    """Cria e retorna uma conexão com o banco de dados SQLite."""
     os.makedirs(DB_DIR, exist_ok=True)
-    # For SQLAlchemy, we don't directly return a duckdb connection object for ORM operations
-    # but rather a session. However, some functions still use direct duckdb.connect.
-    # We'll keep this for compatibility with existing direct duckdb calls.
-    con = duckdb.connect(DB_FILE)
-    return con
+    # For SQLite, we don't directly return a sqlite3 connection object for ORM operations
+    # but rather a session.
+    # If direct sqlite3.connect is needed, it would be:
+    # import sqlite3
+    # con = sqlite3.connect(DB_FILE)
+    # return con
+    return None # No direct connection object returned for SQLAlchemy ORM usage
 
 def initialize_db():
     """Cria a tabela de usuários se ela não existir e adiciona um usuário admin padrão."""
@@ -74,7 +75,7 @@ def criar_usuario(username, password, role):
         session.commit()
     except Exception as e: # Catching generic Exception for now, can be more specific
         session.rollback()
-        if "UNIQUE constraint failed" in str(e): # DuckDB specific constraint error message
+        if "UNIQUE constraint failed" in str(e): # SQLite specific constraint error message
             raise ValueError(f"Usuário '{username}' já existe.")
         else:
             raise
@@ -179,4 +180,4 @@ def verify_user(username, password):
     return None
 
 # Inicializar o banco de dados na primeira importação
-# initialize_db() # Commented out to temporarily disable duckdb initialization
+initialize_db()

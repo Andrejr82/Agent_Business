@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 import logging
-from core.database import duckdb_auth as auth_db
+from core.database import sqlserver_auth as auth_db
 
 audit_logger = logging.getLogger("audit")
 
@@ -50,7 +50,7 @@ if st.session_state.get("authenticated") and st.session_state.get("role") == "ad
     st.subheader("Lista de Usuários")
     users = auth_db.get_all_users()
     if users:
-        df_users = st.dataframe(users, use_container_width=True)
+        df_users = st.dataframe(users, width='stretch')
 
         st.markdown("---")
         st.subheader("Editar Usuário Existente")

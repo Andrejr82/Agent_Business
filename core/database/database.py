@@ -176,7 +176,9 @@ class DatabaseConnectionManager:
         try:
             with self.get_connection() as conn:
                 result = conn.execute(text(query), params or {})
-                return result.fetchall()
+                if result.returns_rows:
+                    return result.fetchall()
+                return []
 
         except (SQLAlchemyError, OSError) as exc:
             logger.error("Erro ao executar query: %s", exc, exc_info=True)
