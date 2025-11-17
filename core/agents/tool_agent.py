@@ -1,5 +1,6 @@
 # core/agents/tool_agent.py
 import logging
+import sys
 from typing import Any, Dict, List  # Import List for chat_history type hint
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
