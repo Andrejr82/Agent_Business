@@ -1,8 +1,30 @@
+# Core dependencies
 python-dotenv
+streamlit>=1.28.0
+
+# Data manipulation
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0
+
+# Database
 SQLAlchemy
 pyodbc
-streamlit
+
+# Security
+bcrypt
+
+# Visualization
+plotly>=5.17.0
+
+# LangChain - pinned versions for compatibility
 langchain==0.1.20
 langchain-core==0.1.52
-google-generativeai
-bcrypt
+langchain-google-genai==0.0.11
+langchain-community==0.0.38
+
+# Google AI
+google-generativeai>=0.3.0
+
+# Optional - MCP support
+httpx>=0.25.0
