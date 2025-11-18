@@ -41,16 +41,7 @@ def login():
             login_btn = st.form_submit_button("Entrar", width='stretch', type="primary")
 
             if login_btn:
-                # Inicialização lazy do store de usuários (compatível com Parquet).
-                if "db_inicializado" not in st.session_state:
-                    try:
-                        auth_db.initialize_db() # Changed this line from init_db to initialize_db
-                    except AttributeError:
-                        if hasattr(auth_db, "init_store"):
-                            auth_db.init_store()
-                    st.session_state["db_inicializado"] = True
-
-                # Bypass de autenticação para desenvolvimento
+                # Bypass de autenticação para desenvolvimento (ANTES da inicialização do DB)
                 if username == "admin" and password == "bypass":
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = "admin"
@@ -64,8 +55,24 @@ def login():
                     st.rerun()
                     return
 
+                # Inicialização lazy do store de usuários (compatível com Parquet).
+                # Tenta inicializar, mas não falha se SQL Server não estiver disponível
+                if "db_inicializado" not in st.session_state:
+                    try:
+                        auth_db.initialize_db() # Changed this line from init_db to initialize_db
+                        st.session_state["db_inicializado"] = True
+                    except (AttributeError, ConnectionError) as e:
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"SQL Server não disponível, usando apenas modo bypass: {e}")
+                        st.session_state["db_inicializado"] = False
+                        if hasattr(auth_db, "init_store"):
+                            auth_db.init_store()
+
                 # Se o DB não estiver habilitado (por design do ambiente), não tentamos conectar
-                user_data = auth_db.verify_user(username, password)
+                if st.session_state.get("db_inicializado", False):
+                    user_data = auth_db.verify_user(username, password)
+                else:
+                    user_data = None  # Sem DB, apenas bypass funciona
                 if user_data:
                     role = user_data["role"]
                     st.session_state["authenticated"] = True
