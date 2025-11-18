@@ -47,6 +47,18 @@
                 "cloud_storage": true,
                 "bigquery": false
             }
+        },
+        "context7": {
+            "name": "Context7 Documentation",
+            "active": false,
+            "credentials": {
+                "api_key": "",
+                "base_url": "https://api.context7.com"
+            },
+            "services": {
+                "documentation": true,
+                "library_resolution": true
+            }
         }
     },
     "settings": {

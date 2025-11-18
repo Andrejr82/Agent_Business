@@ -28,3 +28,6 @@ google-generativeai>=0.3.0
 
 # Optional - MCP support
 httpx>=0.25.0
+
+# Web API (optional - only needed for Flask server)
+Flask>=3.0.0

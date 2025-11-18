@@ -48,7 +48,7 @@ else:
                     figure = go.Figure(json.loads(chart_json))
                 
                 with st.container():
-                    st.plotly_chart(figure, use_container_width=True)
+                    st.plotly_chart(figure, width='stretch')
                     
                     # Botão de exclusão
                     if st.button("Excluir Gráfico", key=f"delete_{filename}"):

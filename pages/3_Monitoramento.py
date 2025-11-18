@@ -40,7 +40,7 @@ else:
                     continue
                 log_lines.append(line.strip())
     st.write(f"Total de linhas exibidas: {len(log_lines)}")
-    st.dataframe(pd.DataFrame(log_lines, columns=["Log"]), use_container_width=True)
+    st.dataframe(pd.DataFrame(log_lines, columns=["Log"]), width='stretch')
 
 # --- STATUS DOS SERVIÇOS ---
 st.markdown("### Status dos Serviços")
@@ -88,7 +88,7 @@ try:
 except Exception as e:
     llm_status = f"FALHA ({str(e)[:30]})"
 status_data.append({"Serviço": "LLM (Gemini)", "Status": llm_status, "Tempo": llm_time})
-st.dataframe(pd.DataFrame(status_data), use_container_width=True)
+st.dataframe(pd.DataFrame(status_data), width='stretch')
 
 
 # --- Função para admins aprovarem redefinição de senha ---
@@ -124,7 +124,7 @@ def tela_redefinir_senha():
     username = st.session_state.get("username")
     nova = st.text_input("Nova senha", type="password")
     nova2 = st.text_input("Confirme a nova senha", type="password")
-    if st.button("Redefinir senha", use_container_width=True, help="Salvar nova senha"):
+    if st.button("Redefinir senha", width='stretch', help="Salvar nova senha"):
         if not nova or not nova2:
             st.warning("Preencha ambos os campos.")
         elif nova != nova2:

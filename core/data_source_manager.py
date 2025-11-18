@@ -10,8 +10,9 @@ from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
-# Constante: Arquivo de dados principal
+# Constantes: Arquivos de dados
 MAIN_DATA_FILE = "data/parquet/Filial_Madureira.parquet"
+CLEAN_DATA_FILE = "data/parquet/Filial_Madureira_LIMPO.parquet"
 
 
 class FilialMadureiraDataSource:
@@ -20,7 +21,15 @@ class FilialMadureiraDataSource:
     def __init__(self):
         self._connected = False
         self._df_cache: Optional[pd.DataFrame] = None
-        self.file_path = Path(MAIN_DATA_FILE)
+
+        # Priorizar arquivo limpo se existir
+        clean_path = Path(CLEAN_DATA_FILE)
+        if clean_path.exists():
+            self.file_path = clean_path
+            logger.info(f"📊 Usando arquivo limpo: {CLEAN_DATA_FILE}")
+        else:
+            self.file_path = Path(MAIN_DATA_FILE)
+            logger.info(f"📊 Usando arquivo original: {MAIN_DATA_FILE}")
 
     def connect(self) -> bool:
         """Verifica se arquivo Parquet existe."""

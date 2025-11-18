@@ -190,29 +190,22 @@ class GeminiLLMAdapter(BaseLLMAdapter):
             tool_calls = msg.get("tool_calls")
             function_call = msg.get("function_call")
 
-            # Mapear roles
-            if role == "assistant":
-                gemini_role = "model"
-            elif role == "function" or role == "tool":
-                gemini_role = "function" # Gemini uses 'function' role for tool responses
-            else:
-                gemini_role = "user"
-
+            # Determine Gemini role based on actual content and OpenAI-like role
             if tool_calls:
-                # Handle tool calls from assistant
-                parts = []
-                for tc in tool_calls:
-                    parts.append({
-                        "function_call": {
-                            "name": tc["function"]["name"],
-                            "args": json.loads(tc["function"]["arguments"])
-                        }
-                    })
-                gemini_msg = {"role": gemini_role, "parts": parts}
-            elif function_call:
-                # Handle tool responses
+                # Model's turn: calls a tool
                 gemini_msg = {
-                    "role": gemini_role,
+                    "role": "model",
+                    "parts": [
+                        {"function_call": {"name": tc["function"]["name"], "args": json.loads(tc["function"]["arguments"])}}
+                        for tc in tool_calls
+                    ]
+                }
+            elif function_call and role in ["function", "tool"]: # Assuming 'function_call' here is metadata for a tool output
+                # User's turn: provides tool response
+                # Note: The `function_call` here refers to the *name* of the function that was called
+                # and its *response*. The actual content is in `content`.
+                gemini_msg = {
+                    "role": "user",
                     "parts": [
                         {
                             "function_response": {
@@ -222,8 +215,13 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                         }
                     ]
                 }
-            else:
-                gemini_msg = {"role": gemini_role, "parts": [{"text": content}]}
+            elif role == "user":
+                gemini_msg = {"role": "user", "parts": [{"text": content}]}
+            elif role == "assistant":
+                gemini_msg = {"role": "model", "parts": [{"text": content}]}
+            else: # Fallback for unexpected roles, treat as user to avoid errors, or raise exception
+                self.logger.warning(f"Unexpected role encountered: {role}. Treating as 'user'.")
+                gemini_msg = {"role": "user", "parts": [{"text": content}]}
 
             gemini_messages.append(gemini_msg)
 

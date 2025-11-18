@@ -35,7 +35,7 @@ def show_catalog_manager():
         df_catalog = pd.DataFrame(catalog)
         st.dataframe(
             df_catalog[["file_name", "description", "row_count", "column_count"]],
-            use_container_width=True,
+            width='stretch',
         )
     else:
         st.info("Nenhuma fonte de dados no catálogo ainda.")

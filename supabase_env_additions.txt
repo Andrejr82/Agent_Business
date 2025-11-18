@@ -1,0 +1,6 @@
+
+# Supabase Credentials (to be filled by user)
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_KEY=
+DATABASE_PASSWORD=

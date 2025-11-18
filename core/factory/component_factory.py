@@ -29,7 +29,11 @@ try:
 except ImportError:
     AGENTS_AVAILABLE = False
 
-from core.web.server import WebServer # Import WebServer from its new location
+try:
+    from core.web.server import WebServer
+    FLASK_AVAILABLE = True
+except ImportError:
+    FLASK_AVAILABLE = False
 
 
 class ComponentFactory:

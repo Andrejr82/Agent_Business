@@ -106,7 +106,7 @@ if catalog:
                     help="Clique para editar a descrição.",
                 ),
             },
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             num_rows="dynamic",
         )

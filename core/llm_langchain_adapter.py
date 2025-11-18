@@ -121,16 +121,29 @@ class CustomLangChainLLM(BaseChatModel):
                 # Treat SystemMessage as a user message for Gemini
                 generic_messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, FunctionMessage):
+                # FunctionMessage is typically a tool response in LangChain
+                # Convert it to a user message with function_response for Gemini
                 generic_messages.append(
-                    {"role": "model", "name": msg.name, "content": msg.content}
+                    {
+                        "role": "user",
+                        "function_call": { # This key is used by GeminiLLMAdapter to identify tool responses
+                            "name": msg.name, # The name of the tool that was called
+                            "response": {"content": str(msg.content)}
+                        }
+                    }
                 )
             elif isinstance(msg, ToolMessage):
-                tool_message_to_send = {
-                    "role": "function",
-                    "tool_call_id": msg.tool_call_id,
-                    "content": str(msg.content),
-                }
-                generic_messages.append(tool_message_to_send)
+                # ToolMessage is also a tool response in LangChain
+                # Convert it to a user message with function_response for Gemini
+                generic_messages.append(
+                    {
+                        "role": "user", # Tool responses are part of the user's turn
+                        "function_call": { # This key is used by GeminiLLMAdapter to identify tool responses
+                            "name": msg.name, # The name of the tool that was called
+                            "response": {"content": str(msg.content)}
+                        }
+                    }
+                )
             else:
                 raise ValueError(f"Unsupported message type: {type(msg)}")
 

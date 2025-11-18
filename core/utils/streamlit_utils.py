@@ -17,7 +17,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def render_output(output, message_type: str = "text"):
+def render_output(output, message_type: str = "text", on_select_callback=None):
     """
     Renderiza diferentes tipos de output no Streamlit.
 
@@ -28,12 +28,12 @@ def render_output(output, message_type: str = "text"):
     try:
         # Se é DataFrame
         if isinstance(output, pd.DataFrame):
-            st.dataframe(output, use_container_width=True)
+            st.dataframe(output, width='stretch')
             return
 
         # Se é figura Plotly
         if HAS_PLOTLY and isinstance(output, go.Figure):
-            st.plotly_chart(output, use_container_width=True)
+            st.plotly_chart(output, width='stretch', on_select=on_select_callback)
             return
 
         # Se é dicionário Plotly JSON (estrutura com 'data' e 'layout')
@@ -41,7 +41,7 @@ def render_output(output, message_type: str = "text"):
             try:
                 if HAS_PLOTLY:
                     fig = go.Figure(output)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch', on_select=on_select_callback)
                     return
             except Exception as e:
                 logger.warning(f"Erro ao renderizar dicionário Plotly: {e}")
@@ -56,7 +56,7 @@ def render_output(output, message_type: str = "text"):
         # Fallback: tentar renderizar como está
         if hasattr(output, "to_json"):
             # Provavelmente é uma figura Plotly
-            st.plotly_chart(output, use_container_width=True)
+            st.plotly_chart(output, width='stretch', on_select=on_select_callback)
             return
 
         # Último recurso: renderizar como JSON
@@ -72,7 +72,7 @@ def render_output(output, message_type: str = "text"):
             st.error("Não foi possível renderizar o conteúdo.")
 
 
-def render_message_history(messages, session_key: str):
+def render_message_history(messages, session_key: str, on_select_callback=None):
     """
     Renderiza o histórico de mensagens.
 
@@ -85,4 +85,4 @@ def render_message_history(messages, session_key: str):
         output = message.get("output")
 
         with st.chat_message(role):
-            render_output(output)
+            render_output(output, on_select_callback=on_select_callback)

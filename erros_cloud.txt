@@ -1,0 +1,10 @@
+ImportError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
+Traceback:
+File "/mount/src/agent_business/streamlit_app.py", line 21, in <module>
+    from core.query_processor import QueryProcessor
+File "/mount/src/agent_business/core/query_processor.py", line 3, in <module>
+    from core.agents.supervisor_agent import SupervisorAgent
+File "/mount/src/agent_business/core/agents/__init__.py", line 2, in <module>
+    from .tool_agent import ToolAgent
+File "/mount/src/agent_business/core/agents/tool_agent.py", line 5, in <module>
+    from langchain.agents import AgentExecutor, create_tool_calling_agent

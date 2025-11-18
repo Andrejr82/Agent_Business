@@ -72,6 +72,19 @@ def handle_logout():
     st.rerun()
 
 
+def handle_chart_selection(selection_data):
+    """
+    Callback function to handle selection events from Plotly charts.
+    Stores the selected data in Streamlit's session state.
+    """
+    if selection_data and selection_data.get("points"):
+        st.session_state["selected_chart_data"] = selection_data["points"]
+        st.toast("Dados selecionados no gráfico!", icon="📊")
+    else:
+        if "selected_chart_data" in st.session_state:
+            del st.session_state["selected_chart_data"]
+        st.toast("Seleção de gráfico limpa.", icon="🗑️")
+
 def show_bi_assistant():
     """Exibe a interface principal do assistente de BI."""
     st.markdown(
@@ -87,23 +100,32 @@ def show_bi_assistant():
             # Se é uma figura Plotly
             if HAS_PLOTLY and isinstance(output, go.Figure):
                 try:
-                    st.plotly_chart(output, use_container_width=True)
+                    st.plotly_chart(output, width='stretch', on_select=handle_chart_selection)
                 except Exception as e:
                     st.error(f"Erro ao renderizar gráfico: {e}")
                     st.write(output)
             # Se é DataFrame
             elif isinstance(output, pd.DataFrame):
-                st.dataframe(output, use_container_width=True)
+                st.dataframe(output, width='stretch')
             # Se tem método to_json (figura Plotly antiga versão)
             elif hasattr(output, "to_json"):
                 try:
-                    st.plotly_chart(output, use_container_width=True)
+                    st.plotly_chart(output, width='stretch', on_select=handle_chart_selection)
                 except Exception as e:
                     st.error(f"Erro ao renderizar gráfico: {e}")
                     st.write(output)
             # Se é texto ou outro tipo
             else:
                 st.markdown(str(output or ""))
+
+    # Display selected chart data if available
+    if "selected_chart_data" in st.session_state and st.session_state["selected_chart_data"]:
+        st.subheader("Dados Selecionados no Gráfico:")
+        selected_df = pd.DataFrame(st.session_state["selected_chart_data"])
+        st.dataframe(selected_df)
+        if st.button("Limpar Seleção"):
+            del st.session_state["selected_chart_data"]
+            st.rerun()
 
     # Exemplos de perguntas na barra lateral
     st.sidebar.markdown("### Exemplos de Perguntas:")
@@ -168,7 +190,7 @@ def show_bi_assistant():
 
                 # Renderizar resposta (sem adicionar figura ao histórico como string)
                 if response["type"] == "dataframe":
-                    st.dataframe(response["output"], use_container_width=True)
+                    st.dataframe(response["output"], width='stretch')
                     # Adicionar ao histórico como string resumida
                     st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
                         {
@@ -191,7 +213,7 @@ def show_bi_assistant():
                         figure = response["output"]
 
                     if figure:
-                        st.plotly_chart(figure, use_container_width=True)
+                        st.plotly_chart(figure, width='stretch', on_select=handle_chart_selection)
                         
                         # Adicionar botão de exportar como PNG
                         st.markdown(
