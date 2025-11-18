@@ -18,12 +18,21 @@ class QueryProcessor:
         """
         self.logger = logging.getLogger(__name__)
         # Usar factory para obter adapter com fallback automático
-        self.llm_adapter = LLMFactory.get_adapter()
-        self.supervisor = SupervisorAgent(gemini_adapter=self.llm_adapter)
-        self.cache = Cache()
-        self.logger.info(
-            "QueryProcessor inicializado e pronto para delegar ao SupervisorAgent."
-        )
+        try:
+            self.llm_adapter = LLMFactory.get_adapter()
+            self.supervisor = SupervisorAgent(gemini_adapter=self.llm_adapter)
+            self.cache = Cache()
+            self.logger.info(
+                "QueryProcessor inicializado e pronto para delegar ao SupervisorAgent."
+            )
+        except ValueError as e:
+            self.logger.error(f"Erro ao inicializar QueryProcessor: {e}")
+            self.llm_adapter = None
+            self.supervisor = None
+            self.cache = Cache()
+            raise RuntimeError(
+                "GEMINI_API_KEY não configurada. Configure a chave da API do Google Gemini nos secrets do Streamlit Cloud."
+            ) from e
 
     def process_query(self, query: str) -> dict:
         """
@@ -35,6 +44,13 @@ class QueryProcessor:
         Returns:
             dict: O resultado do processamento pelo agente especialista apropriado.
         """
+        # Verificar se o supervisor foi inicializado
+        if self.supervisor is None:
+            return {
+                "type": "text",
+                "output": "⚠️ **GEMINI_API_KEY não configurada!**\n\nPara usar o agente, você precisa:\n\n1. Acessar **Settings** no Streamlit Cloud\n2. Adicionar nos **Secrets**:\n```\nGEMINI_API_KEY = \"sua_chave_aqui\"\n```\n\n3. Obter a chave em: https://aistudio.google.com/app/apikey\n\n4. Salvar e aguardar o app reiniciar"
+            }
+
         # Interceptar perguntas sobre o nome do agente
         if query.lower() in ["qual seu nome", "quem é você", "qual o seu nome"]:
             return {

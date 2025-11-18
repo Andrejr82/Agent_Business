@@ -46,14 +46,40 @@ with open("style.css") as f:
 def initialize_session_state():
     """Inicializa o estado da sessão se não existir."""
     if SESSION_STATE_KEYS["QUERY_PROCESSOR"] not in st.session_state:
-        st.session_state[SESSION_STATE_KEYS["QUERY_PROCESSOR"]] = QueryProcessor()
+        try:
+            st.session_state[SESSION_STATE_KEYS["QUERY_PROCESSOR"]] = QueryProcessor()
+        except RuntimeError as e:
+            # GEMINI_API_KEY não configurada, criar um objeto mock
+            st.session_state[SESSION_STATE_KEYS["QUERY_PROCESSOR"]] = None
+            logging.getLogger(__name__).warning(f"QueryProcessor não inicializado: {e}")
+
     if SESSION_STATE_KEYS["MESSAGES"] not in st.session_state:
-        st.session_state[SESSION_STATE_KEYS["MESSAGES"]] = [
-            {
-                "role": ROLES["ASSISTANT"],
-                "output": "Olá! Como posso ajudar você hoje?",
-            }
-        ]
+        # Verificar se o QueryProcessor foi inicializado
+        if st.session_state[SESSION_STATE_KEYS["QUERY_PROCESSOR"]] is None:
+            st.session_state[SESSION_STATE_KEYS["MESSAGES"]] = [
+                {
+                    "role": ROLES["ASSISTANT"],
+                    "output": "⚠️ **GEMINI_API_KEY não configurada!**\n\n"
+                             "Para usar o agente BI, você precisa:\n\n"
+                             "1. Acessar **Settings** (⋮ menu) no Streamlit Cloud\n"
+                             "2. Ir na aba **Secrets**\n"
+                             "3. Adicionar:\n"
+                             "```\n"
+                             "GEMINI_API_KEY = \"sua_chave_aqui\"\n"
+                             "GEMINI_MODEL_NAME = \"gemini-2.0-flash-lite\"\n"
+                             "```\n\n"
+                             "4. Obter chave em: https://aistudio.google.com/app/apikey\n"
+                             "5. Salvar e aguardar app reiniciar\n\n"
+                             "Enquanto isso, você pode explorar os **Dashboards** no menu lateral! 📊",
+                }
+            ]
+        else:
+            st.session_state[SESSION_STATE_KEYS["MESSAGES"]] = [
+                {
+                    "role": ROLES["ASSISTANT"],
+                    "output": "Olá! Como posso ajudar você hoje?",
+                }
+            ]
 
 
 def handle_logout():
@@ -153,6 +179,25 @@ def show_bi_assistant():
         with st.chat_message(ROLES["USER"]):
             st.markdown(prompt)
 
+        # Verificar se QueryProcessor está disponível
+        query_processor = st.session_state.get(SESSION_STATE_KEYS["QUERY_PROCESSOR"])
+
+        if query_processor is None:
+            # GEMINI_API_KEY não configurada
+            with st.chat_message(ROLES["ASSISTANT"]):
+                st.warning(
+                    "⚠️ **GEMINI_API_KEY não configurada!**\n\n"
+                    "Configure a chave da API nos **Settings > Secrets** do Streamlit Cloud.\n\n"
+                    "Enquanto isso, explore os **Dashboards** no menu lateral! 📊"
+                )
+                st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
+                    {
+                        "role": ROLES["ASSISTANT"],
+                        "output": "⚠️ GEMINI_API_KEY não configurada. Configure nos Settings para usar o chat."
+                    }
+                )
+            return
+
         # Processar a pergunta e obter a resposta
         with st.chat_message(ROLES["ASSISTANT"]):
             loading_placeholder = st.empty()
@@ -165,16 +210,12 @@ def show_bi_assistant():
                 1. Analisando sua pergunta
                 2. Consultando as ferramentas
                 3. Gerando dados/gráficos
-                
+
                 **Isso pode levar 20-30 segundos...**
                 """
                 )
 
             with st.spinner("Aguarde..."):
-                query_processor = st.session_state[
-                    SESSION_STATE_KEYS["QUERY_PROCESSOR"]
-                ]
-
                 try:
                     response = query_processor.process_query(prompt)
 
