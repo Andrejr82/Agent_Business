@@ -1,36 +1,54 @@
 import os
+import os
+from typing import Optional
 from pathlib import Path
 from urllib.parse import quote_plus
-
+import streamlit as st
 from dotenv import load_dotenv
 
+# Determina se está em ambiente Streamlit Cloud
+IS_STREAMLIT_CLOUD = os.getenv("IS_STREAMLIT_CLOUD", "false").lower() == "true"
 
 class Config:
     """
     Classe central de configuração para o projeto.
-    Carrega variáveis de ambiente de um arquivo .env e as expõe como atributos de classe.
+    Carrega variáveis de ambiente de um arquivo .env para desenvolvimento local
+    e utiliza st.secrets em produção (Streamlit Cloud).
     """
 
-    # Carrega variáveis de ambiente do arquivo .env na raiz do projeto
-    dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    if dotenv_path.exists():
-        load_dotenv(dotenv_path=dotenv_path, override=True)
-    else:
-        # Em um ambiente de produção ou CI/CD, as variáveis podem ser definidas diretamente.
-        # Adicionamos um um log ou print para alertar que o .env não foi encontrado.
-        print(
-            f"Aviso: Arquivo .env não encontrado em '{dotenv_path}'. As configurações dependerão das variáveis de ambiente do sistema."
-        )
+    @classmethod
+    def setup(cls, dotenv_path: Optional[Path] = None):
+        """Carrega as variáveis de ambiente a partir de um arquivo .env."""
+        if IS_STREAMLIT_CLOUD:
+            return
 
+        if dotenv_path is None:
+            dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
+
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path=dotenv_path, override=True)
+        else:
+            print(
+                f"Aviso: Arquivo .env não encontrado em '{dotenv_path}'. As configurações dependerão das variáveis de ambiente do sistema."
+            )
+
+    @staticmethod
+    def _get_secret(key: str, default: str = None) -> str:
+        """Busca a configuração do st.secrets ou do ambiente."""
+        if IS_STREAMLIT_CLOUD:
+            return st.secrets.get(key, default)
+        return os.getenv(key, default)
+
+    # O restante da classe permanece o mesmo...
     # Configurações do banco de dados
-    DB_SERVER = os.getenv("DB_SERVER", "localhost")
-    DB_DATABASE = os.getenv("DB_DATABASE", "nome_do_banco")
-    DB_USER = os.getenv("DB_USER", "usuario")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "senha")
-    DB_PORT = os.getenv("DB_PORT", "1433")
-    DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
-    DB_TRUST_SERVER_CERTIFICATE = os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")
-    DB_ENCRYPT = os.getenv("DB_ENCRYPT", "no")
+    DB_SERVER = _get_secret("DB_SERVER", "localhost")
+    DB_DATABASE = _get_secret("DB_DATABASE", "nome_do_banco")
+    DB_USER = _get_secret("DB_USER", "usuario")
+    DB_PASSWORD = _get_secret("DB_PASSWORD", "senha")
+    DB_PORT = _get_secret("DB_PORT", "1433")
+    DB_DRIVER = _get_secret("DB_DRIVER", "ODBC Driver 17 for SQL Server")
+    DB_TRUST_SERVER_CERTIFICATE = _get_secret("DB_TRUST_SERVER_CERTIFICATE", "yes")
+    DB_ENCRYPT = _get_secret("DB_ENCRYPT", "no")
 
 
     # String de conexão para SQLAlchemy, construída dinamicamente
@@ -55,40 +73,27 @@ class Config:
         return uri
 
     # Modo de demonstração (sem acesso ao banco de dados)
-    DEMO_MODE = os.getenv("DEMO_MODE", "False").lower() == "true"
+    DEMO_MODE = _get_secret("DEMO_MODE", "False").lower() == "true"
 
     # Configurações da aplicação
-    DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-    SECRET_KEY = os.getenv("SECRET_KEY", "chave_secreta_padrao")
+    DEBUG = _get_secret("DEBUG", "False").lower() == "true"
+    SECRET_KEY = _get_secret("SECRET_KEY", "chave_secreta_padrao")
     SESSION_COOKIE_PATH = "/"
 
     # Gemini API Key and Model Name
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash-lite")
+    GEMINI_API_KEY = _get_secret("GEMINI_API_KEY")
+    GEMINI_MODEL_NAME = _get_secret("GEMINI_MODEL_NAME", "gemini-2.0-flash-lite")
 
     # LLM Provider Selection
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+    LLM_PROVIDER = _get_secret("LLM_PROVIDER", "gemini").lower()
 
     # Configurações de log
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    LOG_LEVEL = _get_secret("LOG_LEVEL", "INFO")
 
     # LangSmith Tracing
-    LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
-    LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
-    LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "caculinha-bi-project")
+    LANGCHAIN_TRACING_V2 = _get_secret("LANGCHAIN_TRACING_V2", "false").lower() == "true"
+    LANGCHAIN_API_KEY = _get_secret("LANGCHAIN_API_KEY")
+    LANGCHAIN_PROJECT = _get_secret("LANGCHAIN_PROJECT", "caculinha-bi-project")
 
-
-# Para manter a compatibilidade com o resto do código que pode estar importando
-# as variáveis diretamente, podemos instanciar a classe aqui.
-# Recomendado: importar a classe `Config` e usar `Config.VARIAVEL`.
-config = Config()
-
-# Exportando variáveis para compatibilidade com o código legado
-DEBUG = config.DEBUG
-SECRET_KEY = config.SECRET_KEY
-DEMO_MODE = config.DEMO_MODE
-GEMINI_API_KEY = config.GEMINI_API_KEY
-GEMINI_MODEL_NAME = config.GEMINI_MODEL_NAME
-LLM_PROVIDER = config.LLM_PROVIDER
-LOG_LEVEL = config.LOG_LEVEL
-SQLALCHEMY_DATABASE_URI = config.SQLALCHEMY_DATABASE_URI
+# Carrega a configuração na importação do módulo
+Config.setup()

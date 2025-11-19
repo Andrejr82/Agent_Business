@@ -11,8 +11,9 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger(__name__)
 
 # Constantes: Arquivos de dados
-MAIN_DATA_FILE = "data/parquet/Filial_Madureira.parquet"
-CLEAN_DATA_FILE = "data/parquet/Filial_Madureira_LIMPO.parquet"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MAIN_DATA_FILE = PROJECT_ROOT / "data" / "parquet" / "Filial_Madureira.parquet"
+CLEAN_DATA_FILE = PROJECT_ROOT / "data" / "parquet" / "Filial_Madureira_LIMPO.parquet"
 
 
 class FilialMadureiraDataSource:
