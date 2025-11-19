@@ -79,10 +79,10 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                             gemini_tools = []
 
                         # Log detalhado dos dados enviados
-                        self.logger.debug(f"---- DADOS ENVIADOS PARA GEMINI API (tentativa {attempt + 1}) ----")
-                        self.logger.debug(f"MENSAGENS: {json.dumps(gemini_messages, indent=2, ensure_ascii=False)}")
-                        self.logger.debug(f"FERRAMENTAS: {gemini_tools}")
-                        self.logger.debug("--------------------------------------------------")
+                        self.logger.info(f"---- DADOS ENVIADOS PARA GEMINI API (tentativa {attempt + 1}) ----")
+                        self.logger.info(f"MENSAGENS: {json.dumps(gemini_messages, indent=2, ensure_ascii=False)}")
+                        self.logger.info(f"FERRAMENTAS: {gemini_tools}")
+                        self.logger.info("--------------------------------------------------")
 
                         model = genai.GenerativeModel(
                             model_name=self.model_name,
@@ -99,9 +99,9 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                         response = chat_session.send_message(gemini_messages[-1]["parts"])
 
                         # Log detalhado da resposta recebida
-                        self.logger.debug(f"---- RESPOSTA BRUTA DA GEMINI API (tentativa {attempt + 1}) ----")
-                        self.logger.debug(response)
-                        self.logger.debug("-----------------------------------------------------")
+                        self.logger.info(f"---- RESPOSTA BRUTA DA GEMINI API (tentativa {attempt + 1}) ----")
+                        self.logger.info(response)
+                        self.logger.info("-----------------------------------------------------")
 
                         self.logger.info("Chamada Gemini concluída.")
 
