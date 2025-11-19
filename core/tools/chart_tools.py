@@ -928,6 +928,166 @@ def gerar_grafico_vendas_mensais_produto(
 
 
 @tool
+def gerar_grafico_vendas_por_grupo(
+    nome_grupo: str, agregacao: str = "soma"
+) -> Dict[str, Any]:
+    """
+    Gera gráfico de vendas mensais para todos os produtos de um grupo específico.
+    Útil para análise de desempenho de categorias de produtos ao longo do ano.
+
+    Args:
+        nome_grupo: Nome do grupo/categoria (ex: "ESMALTES", "CREMES", etc.)
+        agregacao: Tipo de agregação - "soma" (padrão) ou "media"
+
+    Returns:
+        Dicionário com gráfico de vendas mensais do grupo
+    """
+    logger.info(f"Gerando gráfico de vendas do grupo: {nome_grupo}")
+
+    try:
+        manager = get_data_manager()
+        df = manager.get_data()
+
+        if df is None or df.empty:
+            return {"status": "error", "message": "Não foi possível carregar dados"}
+
+        # Verificar se coluna GRUPO existe
+        if "GRUPO" not in df.columns:
+            return {
+                "status": "error",
+                "message": "Coluna 'GRUPO' não encontrada no dataset"
+            }
+
+        # Filtrar produtos do grupo (case-insensitive)
+        df_grupo = df[df["GRUPO"].str.upper().str.contains(nome_grupo.upper(), na=False)].copy()
+
+        if df_grupo.empty:
+            grupos_disponiveis = df["GRUPO"].unique()[:10]
+            return {
+                "status": "error",
+                "message": (
+                    f"Grupo '{nome_grupo}' não encontrado. "
+                    f"Grupos disponíveis: {', '.join(map(str, grupos_disponiveis))}"
+                )
+            }
+
+        # Colunas de vendas mensais
+        mes_cols = {
+            'JAN': 'VENDA QTD JAN', 'FEV': 'VENDA QTD FEV', 'MAR': 'VENDA QTD MAR',
+            'ABR': 'VENDA QTD ABR', 'MAI': 'VENDA QTD MAI', 'JUN': 'VENDA QTD JUN',
+            'JUL': 'VENDA QTD JUL', 'AGO': 'VENDA QTD AGO', 'SET': 'VENDA QTD SET',
+            'OUT': 'VENDA QTD OUT', 'NOV': 'VENDA QTD NOV', 'DEZ': 'VENDA QTD DEZ'
+        }
+
+        # Converter para numérico
+        for col in mes_cols.values():
+            if col in df_grupo.columns:
+                df_grupo[col] = pd.to_numeric(df_grupo[col], errors='coerce').fillna(0)
+
+        # Agregar vendas mensais
+        vendas_mensais = []
+        mes_labels = []
+
+        for mes_abrev, col_name in mes_cols.items():
+            if col_name in df_grupo.columns:
+                if agregacao == "media":
+                    valor = df_grupo[col_name].mean()
+                else:  # soma (padrão)
+                    valor = df_grupo[col_name].sum()
+
+                vendas_mensais.append(float(valor))
+                mes_labels.append(mes_abrev)
+
+        if not vendas_mensais:
+            return {
+                "status": "error",
+                "message": "Colunas de vendas mensais não encontradas"
+            }
+
+        # Criar gráfico
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Scatter(
+                x=mes_labels,
+                y=vendas_mensais,
+                mode="lines+markers+text",
+                name="Vendas",
+                line=dict(color="#10B981", width=3),
+                marker=dict(
+                    size=12,
+                    color="#10B981",
+                    line=dict(width=2, color="white"),
+                    symbol="circle",
+                ),
+                hovertemplate=(
+                    "<b>Mês: %{x}</b><br>"
+                    "Quantidade: %{y:,.0f} unidades<extra></extra>"
+                ),
+                fill="tozeroy",
+                fillcolor="rgba(16, 185, 129, 0.2)",
+                text=[f"{int(v):,}" for v in vendas_mensais],
+                textposition="top center",
+                textfont=dict(size=10)
+            )
+        )
+
+        # Adicionar linha de média
+        if vendas_mensais:
+            media_vendas = sum(vendas_mensais) / len(vendas_mensais)
+            fig.add_hline(
+                y=media_vendas,
+                line_dash="dash",
+                line_color="red",
+                annotation_text=f"Média: {int(media_vendas):,}",
+                annotation_position="right",
+            )
+
+        tipo_agregacao = "Total" if agregacao == "soma" else "Média"
+        titulo = f"Vendas Mensais - Grupo: {nome_grupo.upper()} ({tipo_agregacao})"
+
+        fig = _apply_chart_customization(fig, title=titulo)
+
+        fig.update_xaxes(title_text="Mês")
+        fig.update_yaxes(title_text="Quantidade (unidades)")
+        fig.update_layout(height=600, hovermode="x unified")
+
+        # Calcular estatísticas
+        total_vendas = sum(vendas_mensais)
+        venda_media = total_vendas / len(vendas_mensais) if vendas_mensais else 0
+        venda_max = max(vendas_mensais) if vendas_mensais else 0
+        venda_min = min(vendas_mensais) if vendas_mensais else 0
+        venda_max_mes = mes_labels[vendas_mensais.index(venda_max)] if vendas_mensais and venda_max > 0 else "N/A"
+        venda_min_mes = mes_labels[vendas_mensais.index(venda_min)] if vendas_mensais else "N/A"
+
+        return {
+            "status": "success",
+            "chart_type": "line_temporal_grupo",
+            "chart_data": _export_chart_to_json(fig),
+            "summary": {
+                "grupo": nome_grupo.upper(),
+                "total_produtos": len(df_grupo),
+                "agregacao": agregacao,
+                "total_vendas": int(total_vendas),
+                "venda_media_mensal": float(venda_media),
+                "venda_maxima": int(venda_max),
+                "venda_minima": int(venda_min),
+                "mes_maior_venda": venda_max_mes,
+                "mes_menor_venda": venda_min_mes,
+                "meses_analisados": len(mes_labels),
+                "dados_mensais": {
+                    mes_labels[i]: int(vendas_mensais[i])
+                    for i in range(len(mes_labels))
+                },
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar gráfico de vendas por grupo: {e}", exc_info=True)
+        return {"status": "error", "message": f"Erro ao gerar gráfico: {str(e)}"}
+
+
+@tool
 def gerar_ranking_produtos_mais_vendidos(top_n: int = 10) -> Dict[str, Any]:
     """
     Gera um gráfico de barras horizontais com o ranking dos produtos mais vendidos no ano.
@@ -1107,6 +1267,7 @@ chart_tools = [
     gerar_dashboard_analise_completa,
     gerar_grafico_vendas_por_produto,
     gerar_grafico_vendas_mensais_produto,
+    gerar_grafico_vendas_por_grupo,  # NOVO: Gráfico de vendas por grupo/categoria
     gerar_grafico_automatico,
     gerar_ranking_produtos_mais_vendidos,
     gerar_dashboard_dinamico,

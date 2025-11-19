@@ -119,9 +119,16 @@ class ToolAgent:
                     "   - Use: `listar_colunas_disponiveis()` quando o usuário perguntar sobre estrutura dos dados\n\n"
 
                     "4. Para gráficos de produto específico:\n"
-                    "   - Use: `gerar_grafico_vendas_mensais_produto(codigo_produto=X)`\n\n"
+                    "   - Use: `gerar_grafico_vendas_mensais_produto(codigo_produto=X)`\n"
+                    "   - Exemplo: 'Gráfico de vendas do produto 9' → `gerar_grafico_vendas_mensais_produto(codigo_produto=9)`\n\n"
 
-                    "5. Para rankings:\n"
+                    "5. Para gráficos de vendas por grupo/categoria:\n"
+                    "   - Use: `gerar_grafico_vendas_por_grupo(nome_grupo='NOME_DO_GRUPO')`\n"
+                    "   - Exemplo 1: 'Gráfico de vendas do grupo de esmaltes' → `gerar_grafico_vendas_por_grupo(nome_grupo='esmaltes')`\n"
+                    "   - Exemplo 2: 'Vendas mensais da categoria cremes' → `gerar_grafico_vendas_por_grupo(nome_grupo='cremes')`\n"
+                    "   - Exemplo 3: 'Evolução de vendas dos produtos de maquiagem' → `gerar_grafico_vendas_por_grupo(nome_grupo='maquiagem')`\n\n"
+
+                    "6. Para rankings:\n"
                     "   - Use: `gerar_ranking_produtos_mais_vendidos(top_n=N)`\n\n"
 
                     "## TERMOS COMUNS E MAPEAMENTO:\n"
