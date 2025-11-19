@@ -44,6 +44,11 @@ class GeminiLLMAdapter(BaseLLMAdapter):
         self.retry_delay = 2
 
         self.logger.info(f"Gemini adapter inicializado com modelo: {self.model_name}")
+        # Log para verificar se a chave foi carregada (NÃO LOGAR A CHAVE COMPLETA)
+        if Config().GEMINI_API_KEY:
+            self.logger.info(f"GEMINI_API_KEY carregada (final ...{Config().GEMINI_API_KEY[-4:]})")
+        else:
+            self.logger.error("GEMINI_API_KEY NÃO foi carregada!")
 
     def get_completion(
         self,
@@ -73,6 +78,12 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                         else:
                             gemini_tools = []
 
+                        # Log detalhado dos dados enviados
+                        self.logger.debug(f"---- DADOS ENVIADOS PARA GEMINI API (tentativa {attempt + 1}) ----")
+                        self.logger.debug(f"MENSAGENS: {json.dumps(gemini_messages, indent=2, ensure_ascii=False)}")
+                        self.logger.debug(f"FERRAMENTAS: {gemini_tools}")
+                        self.logger.debug("--------------------------------------------------")
+
                         model = genai.GenerativeModel(
                             model_name=self.model_name,
                             tools=gemini_tools if gemini_tools else None,
@@ -86,6 +97,11 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                         )
 
                         response = chat_session.send_message(gemini_messages[-1]["parts"])
+
+                        # Log detalhado da resposta recebida
+                        self.logger.debug(f"---- RESPOSTA BRUTA DA GEMINI API (tentativa {attempt + 1}) ----")
+                        self.logger.debug(response)
+                        self.logger.debug("-----------------------------------------------------")
 
                         self.logger.info("Chamada Gemini concluída.")
 
