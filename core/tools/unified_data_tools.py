@@ -116,6 +116,7 @@ def consultar_dados(
     Returns:
         Uma string formatada com os dados consultados ou uma mensagem de erro/não encontrado.
     """
+    logger.info(f"--- FERRAMENTA consultar_dados CHAMADA COM: coluna='{coluna}', valor='{valor}', coluna_retorno='{coluna_retorno}' ---")
     logger.info(f"Consultando via DataSourceManager: coluna={coluna}, valor={valor}, coluna_retorno={coluna_retorno}, limite={limite}")
     
     try:
