@@ -135,11 +135,24 @@ class CustomLangChainLLM(BaseChatModel):
             elif isinstance(msg, ToolMessage):
                 # ToolMessage is also a tool response in LangChain
                 # Convert it to a user message with function_response for Gemini
+
+                # Extract tool name from ToolMessage
+                tool_name = msg.name
+
+                # Fallback: if name is empty, try to extract from tool_call_id
+                if not tool_name or tool_name == "":
+                    if hasattr(msg, 'tool_call_id') and msg.tool_call_id:
+                        # tool_call_id format is typically "call_<function_name>"
+                        tool_name = msg.tool_call_id.replace("call_", "")
+                    else:
+                        # Last resort: use a default name
+                        tool_name = "unknown_tool"
+
                 generic_messages.append(
                     {
                         "role": "user", # Tool responses are part of the user's turn
                         "function_call": { # This key is used by GeminiLLMAdapter to identify tool responses
-                            "name": msg.name, # The name of the tool that was called
+                            "name": tool_name,  # The name of the tool that was called
                             "response": {"content": str(msg.content)}
                         }
                     }
