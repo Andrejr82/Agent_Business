@@ -1155,6 +1155,285 @@ def gerar_ranking_produtos_mais_vendidos(top_n: int = 10) -> Dict[str, Any]:
 
 
 @tool
+def listar_graficos_disponiveis() -> Dict[str, Any]:
+    """
+    Lista todos os tipos de gráficos e dashboards disponíveis no sistema.
+    Use esta ferramenta quando o usuário perguntar "quais gráficos você pode gerar?",
+    "que tipos de visualizações existem?", ou similares.
+
+    Returns:
+        Dicionário com lista completa de gráficos disponíveis e suas descrições
+    """
+    logger.info("Listando gráficos disponíveis")
+
+    graficos_info = {
+        "total_tipos": 12,
+        "categorias": {
+            "Análise de Vendas": [
+                {
+                    "nome": "gerar_grafico_vendas_por_grupo",
+                    "descricao": "Vendas mensais de um grupo/categoria específica (ex: esmaltes, cremes)",
+                    "exemplo": "gerar_grafico_vendas_por_grupo(nome_grupo='esmaltes')"
+                },
+                {
+                    "nome": "gerar_grafico_vendas_mensais_produto",
+                    "descricao": "Evolução de vendas mensais de um produto específico",
+                    "exemplo": "gerar_grafico_vendas_mensais_produto(codigo_produto=9)"
+                },
+                {
+                    "nome": "gerar_ranking_produtos_mais_vendidos",
+                    "descricao": "Ranking dos produtos mais vendidos do ano",
+                    "exemplo": "gerar_ranking_produtos_mais_vendidos(top_n=10)"
+                }
+            ],
+            "Análise de Categorias": [
+                {
+                    "nome": "gerar_grafico_vendas_por_categoria",
+                    "descricao": "Gráfico donut com total de produtos por grupo",
+                    "exemplo": "gerar_grafico_vendas_por_categoria(limite=10)"
+                },
+                {
+                    "nome": "gerar_grafico_pizza_categorias",
+                    "descricao": "Pizza com proporção percentual de produtos por grupo",
+                    "exemplo": "gerar_grafico_pizza_categorias()"
+                },
+                {
+                    "nome": "gerar_comparacao_precos_categorias",
+                    "descricao": "Comparação de preços médios entre grupos",
+                    "exemplo": "gerar_comparacao_precos_categorias()"
+                }
+            ],
+            "Análise de Estoque": [
+                {
+                    "nome": "gerar_grafico_estoque_por_produto",
+                    "descricao": "Barras verticais com estoque disponível por produto",
+                    "exemplo": "gerar_grafico_estoque_por_produto(limite=15)"
+                },
+                {
+                    "nome": "gerar_analise_distribuicao_estoque",
+                    "descricao": "Histograma + Box Plot de distribuição de estoque",
+                    "exemplo": "gerar_analise_distribuicao_estoque()"
+                }
+            ],
+            "Dashboards Completos": [
+                {
+                    "nome": "gerar_dashboard_analise_completa",
+                    "descricao": "Dashboard 2x2 com visão geral do negócio (produtos, estoque, preços)",
+                    "exemplo": "gerar_dashboard_analise_completa()"
+                },
+                {
+                    "nome": "gerar_dashboard_dinamico",
+                    "descricao": "Dashboard customizado com até 4 gráficos escolhidos",
+                    "exemplo": "gerar_dashboard_dinamico(graficos=['gerar_grafico_pizza_categorias', 'gerar_ranking_produtos_mais_vendidos'])"
+                },
+                {
+                    "nome": "gerar_dashboard_executivo",
+                    "descricao": "Dashboard executivo otimizado para tomada de decisão",
+                    "exemplo": "gerar_dashboard_executivo()"
+                }
+            ],
+            "Gráficos Inteligentes": [
+                {
+                    "nome": "gerar_grafico_automatico",
+                    "descricao": "Detecção automática do tipo de gráfico baseado na descrição",
+                    "exemplo": "gerar_grafico_automatico(descricao='vendas por categoria')"
+                }
+            ]
+        },
+        "dicas": [
+            "Para análise de vendas de categorias, use gerar_grafico_vendas_por_grupo",
+            "Para visão geral rápida, use gerar_dashboard_analise_completa",
+            "Para dashboards personalizados, use gerar_dashboard_dinamico",
+            "O gerar_grafico_automatico tenta detectar automaticamente o que você precisa"
+        ]
+    }
+
+    return {
+        "status": "success",
+        "graficos_disponiveis": graficos_info,
+        "message": f"Total de {graficos_info['total_tipos']} tipos de gráficos disponíveis"
+    }
+
+
+@tool
+def gerar_dashboard_executivo() -> Dict[str, Any]:
+    """
+    Gera dashboard executivo completo com os principais indicadores de negócio.
+    Layout 2x3 otimizado para análise gerencial e tomada de decisão.
+
+    Inclui:
+    - Vendas por categoria (Top 10)
+    - Ranking produtos mais vendidos
+    - Análise de estoque
+    - Comparação de preços
+    - Distribuição de produtos
+    - Métricas principais
+
+    Returns:
+        Dicionário com dashboard executivo completo
+    """
+    logger.info("Gerando dashboard executivo")
+
+    try:
+        manager = get_data_manager()
+        df = manager.get_data()
+
+        if df is None or df.empty:
+            return {"status": "error", "message": "Não foi possível carregar dados"}
+
+        from plotly.subplots import make_subplots
+
+        # Preparar dados
+        df_conv = df.copy()
+
+        # Converter colunas para numérico
+        for col in ['QTD', 'VENDA UNIT R$', 'VENDA R$', 'LUCRO R$']:
+            if col in df_conv.columns:
+                df_conv[col] = pd.to_numeric(df_conv[col], errors='coerce').fillna(0)
+
+        # Calcular vendas totais se não existir
+        mes_cols = [col for col in df_conv.columns if 'VENDA QTD' in col]
+        if mes_cols:
+            df_conv['VENDAS_TOTAIS'] = df_conv[mes_cols].sum(axis=1)
+
+        # Criar subplots 2x3
+        fig = make_subplots(
+            rows=2, cols=3,
+            subplot_titles=(
+                "Top 10 Grupos (Quantidade)",
+                "Top 10 Produtos Mais Vendidos",
+                "Análise de Lucro por Grupo",
+                "Distribuição de Estoque",
+                "Preço Médio por Grupo",
+                "Status de Vendas Mensais"
+            ),
+            specs=[
+                [{"type": "bar"}, {"type": "bar"}, {"type": "bar"}],
+                [{"type": "histogram"}, {"type": "bar"}, {"type": "scatter"}]
+            ],
+            vertical_spacing=0.12,
+            horizontal_spacing=0.1
+        )
+
+        # 1. Top 10 Grupos
+        if 'GRUPO' in df_conv.columns:
+            grupos = df_conv['GRUPO'].value_counts().head(10)
+            fig.add_trace(
+                go.Bar(
+                    x=grupos.index,
+                    y=grupos.values,
+                    name="Produtos",
+                    marker_color="#2563EB"
+                ),
+                row=1, col=1
+            )
+
+        # 2. Top 10 Produtos Mais Vendidos
+        if 'VENDAS_TOTAIS' in df_conv.columns and 'DESCRIÇÃO' in df_conv.columns:
+            top_vendas = df_conv.nlargest(10, 'VENDAS_TOTAIS')
+            fig.add_trace(
+                go.Bar(
+                    x=top_vendas['VENDAS_TOTAIS'],
+                    y=top_vendas['DESCRIÇÃO'],
+                    orientation='h',
+                    name="Vendas",
+                    marker_color="#10B981"
+                ),
+                row=1, col=2
+            )
+
+        # 3. Lucro por Grupo
+        if 'GRUPO' in df_conv.columns and 'LUCRO R$' in df_conv.columns:
+            lucro_grupo = df_conv.groupby('GRUPO')['LUCRO R$'].sum().sort_values(ascending=False).head(10)
+            fig.add_trace(
+                go.Bar(
+                    x=lucro_grupo.index,
+                    y=lucro_grupo.values,
+                    name="Lucro",
+                    marker_color="#F59E0B"
+                ),
+                row=1, col=3
+            )
+
+        # 4. Distribuição de Estoque
+        if 'QTD' in df_conv.columns:
+            fig.add_trace(
+                go.Histogram(
+                    x=df_conv['QTD'],
+                    nbinsx=30,
+                    name="Estoque",
+                    marker_color="#8B5CF6"
+                ),
+                row=2, col=1
+            )
+
+        # 5. Preço Médio por Grupo
+        if 'GRUPO' in df_conv.columns and 'VENDA UNIT R$' in df_conv.columns:
+            preco_grupo = df_conv.groupby('GRUPO')['VENDA UNIT R$'].mean().sort_values(ascending=False).head(10)
+            fig.add_trace(
+                go.Bar(
+                    x=preco_grupo.index,
+                    y=preco_grupo.values,
+                    name="Preço Médio",
+                    marker_color="#EC4899"
+                ),
+                row=2, col=2
+            )
+
+        # 6. Vendas Mensais Totais
+        if mes_cols:
+            vendas_mensais = df_conv[mes_cols].sum()
+            meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+            fig.add_trace(
+                go.Scatter(
+                    x=meses,
+                    y=vendas_mensais.values,
+                    mode='lines+markers',
+                    name="Vendas Mensais",
+                    line=dict(color="#14B8A6", width=3),
+                    marker=dict(size=8),
+                    fill='tozeroy'
+                ),
+                row=2, col=3
+            )
+
+        # Atualizar layout
+        fig.update_layout(
+            title_text="Dashboard Executivo - Visão Geral do Negócio",
+            height=900,
+            showlegend=False,
+            template=_get_theme_template(),
+            margin=dict(l=60, r=60, t=100, b=60)
+        )
+
+        # Ajustar eixos
+        fig.update_xaxes(tickangle=-45, row=1, col=1)
+        fig.update_xaxes(tickangle=-45, row=1, col=3)
+        fig.update_xaxes(tickangle=-45, row=2, col=2)
+
+        # Calcular métricas
+        metricas = {
+            "total_produtos": len(df_conv),
+            "total_grupos": df_conv['GRUPO'].nunique() if 'GRUPO' in df_conv.columns else 0,
+            "lucro_total": float(df_conv['LUCRO R$'].sum()) if 'LUCRO R$' in df_conv.columns else 0,
+            "vendas_totais": float(df_conv['VENDAS_TOTAIS'].sum()) if 'VENDAS_TOTAIS' in df_conv.columns else 0,
+            "estoque_total": float(df_conv['QTD'].sum()) if 'QTD' in df_conv.columns else 0,
+            "valor_estoque": float((df_conv['QTD'] * df_conv['VENDA UNIT R$']).sum()) if all(c in df_conv.columns for c in ['QTD', 'VENDA UNIT R$']) else 0
+        }
+
+        return {
+            "status": "success",
+            "chart_type": "dashboard_executivo",
+            "chart_data": _export_chart_to_json(fig),
+            "summary": metricas
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar dashboard executivo: {e}", exc_info=True)
+        return {"status": "error", "message": f"Erro ao gerar dashboard: {str(e)}"}
+
+
+@tool
 def gerar_dashboard_dinamico(graficos: list) -> Dict[str, Any]:
     """
     Gera um dashboard dinâmico com uma seleção de gráficos.
@@ -1259,16 +1538,25 @@ def gerar_dashboard_dinamico(graficos: list) -> Dict[str, Any]:
 
 # Lista de todas as ferramentas de gráficos disponíveis
 chart_tools = [
+    # Ferramentas de análise e consulta
+    listar_graficos_disponiveis,  # NOVO: Lista todos os gráficos disponíveis
+
+    # Gráficos individuais
     gerar_grafico_vendas_por_categoria,
     gerar_grafico_estoque_por_produto,
     gerar_comparacao_precos_categorias,
     gerar_analise_distribuicao_estoque,
     gerar_grafico_pizza_categorias,
-    gerar_dashboard_analise_completa,
     gerar_grafico_vendas_por_produto,
     gerar_grafico_vendas_mensais_produto,
-    gerar_grafico_vendas_por_grupo,  # NOVO: Gráfico de vendas por grupo/categoria
-    gerar_grafico_automatico,
+    gerar_grafico_vendas_por_grupo,  # Gráfico de vendas por grupo/categoria
     gerar_ranking_produtos_mais_vendidos,
+
+    # Dashboards completos
+    gerar_dashboard_analise_completa,
+    gerar_dashboard_executivo,  # NOVO: Dashboard executivo 2x3
     gerar_dashboard_dinamico,
+
+    # Gráficos inteligentes
+    gerar_grafico_automatico,
 ]

@@ -45,6 +45,9 @@ class ToolAgent:
                     "REGRA FUNDAMENTAL: SEMPRE que o usuário perguntar sobre dados de produtos/items, você DEVE usar a ferramenta `consultar_dados`. "
                     "NUNCA responda que não pode determinar algo sem antes tentar usar a ferramenta apropriada.\n\n"
 
+                    "REGRA DE DASHBOARDS: Quando o usuário pedir 'dashboard', 'visão geral', 'resumo executivo', ou 'análise completa', "
+                    "use AUTOMATICAMENTE o `gerar_dashboard_executivo()` pois ele fornece 6 gráficos otimizados para decisão gerencial.\n\n"
+
                     "## COLUNAS DISPONÍVEIS NO DATASET:\n"
                     "Use os nomes EXATOS das colunas abaixo:\n\n"
 
@@ -130,6 +133,17 @@ class ToolAgent:
 
                     "6. Para rankings:\n"
                     "   - Use: `gerar_ranking_produtos_mais_vendidos(top_n=N)`\n\n"
+
+                    "7. Para dashboards completos:\n"
+                    "   - Dashboard Executivo (RECOMENDADO para visão geral): `gerar_dashboard_executivo()`\n"
+                    "   - Dashboard Análise Completa: `gerar_dashboard_analise_completa()`\n"
+                    "   - Dashboard Dinâmico: `gerar_dashboard_dinamico(graficos=['nome1', 'nome2'])`\n"
+                    "   - Exemplo 1: 'Mostre um dashboard executivo' → `gerar_dashboard_executivo()`\n"
+                    "   - Exemplo 2: 'Quero ver um dashboard completo' → `gerar_dashboard_executivo()`\n"
+                    "   - Exemplo 3: 'Dashboard com vendas e estoque' → `gerar_dashboard_dinamico(graficos=['gerar_ranking_produtos_mais_vendidos', 'gerar_grafico_estoque_por_produto'])`\n\n"
+
+                    "8. Para listar gráficos disponíveis:\n"
+                    "   - Use: `listar_graficos_disponiveis()` quando o usuário perguntar 'quais gráficos você pode gerar?'\n\n"
 
                     "## TERMOS COMUNS E MAPEAMENTO:\n"
                     "- 'lucro' ou 'rentabilidade' → LUCRO R$\n"
