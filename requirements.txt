@@ -18,13 +18,13 @@ bcrypt
 plotly>=5.17.0
 
 # LangChain - pinned versions for compatibility
-langchain==0.1.20
-langchain-core==0.1.52
-langchain-google-genai==0.0.11
-langchain-community==0.0.38
+langchain==0.2.1
+langchain-core==0.2.3
+langchain-google-genai==1.0.4
+langchain-community==0.2.1
 
 # Google AI
-google-generativeai>=0.3.0
+google-generativeai~=0.5.4
 
 # Optional - MCP support
 httpx>=0.25.0
