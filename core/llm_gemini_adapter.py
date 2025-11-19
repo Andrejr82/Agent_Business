@@ -191,6 +191,7 @@ class GeminiLLMAdapter(BaseLLMAdapter):
             function_call = msg.get("function_call")
 
             # Determine Gemini role based on actual content and OpenAI-like role
+            # IMPORTANT: Check for tool_calls and function_call FIRST, before checking role
             if tool_calls:
                 # Model's turn: calls a tool
                 gemini_msg = {
@@ -200,10 +201,10 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                         for tc in tool_calls
                     ]
                 }
-            elif function_call and role in ["function", "tool"]: # Assuming 'function_call' here is metadata for a tool output
+            elif function_call:
                 # User's turn: provides tool response
-                # Note: The `function_call` here refers to the *name* of the function that was called
-                # and its *response*. The actual content is in `content`.
+                # This handles both explicit "function"/"tool" roles AND cases where
+                # LangChain sends "user" role with function_call metadata
                 gemini_msg = {
                     "role": "user",
                     "parts": [
@@ -217,9 +218,9 @@ class GeminiLLMAdapter(BaseLLMAdapter):
                 }
             elif role == "user":
                 gemini_msg = {"role": "user", "parts": [{"text": content}]}
-            elif role == "assistant":
+            elif role == "assistant" or role == "model":
                 gemini_msg = {"role": "model", "parts": [{"text": content}]}
-            else: # Fallback for unexpected roles, treat as user to avoid errors, or raise exception
+            else: # Fallback for unexpected roles, treat as user to avoid errors
                 self.logger.warning(f"Unexpected role encountered: {role}. Treating as 'user'.")
                 gemini_msg = {"role": "user", "parts": [{"text": content}]}
 
