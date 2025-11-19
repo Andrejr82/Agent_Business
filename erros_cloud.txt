@@ -1,10 +1,382 @@
-ImportError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
-Traceback:
-File "/mount/src/agent_business/streamlit_app.py", line 21, in <module>
-    from core.query_processor import QueryProcessor
-File "/mount/src/agent_business/core/query_processor.py", line 3, in <module>
-    from core.agents.supervisor_agent import SupervisorAgent
-File "/mount/src/agent_business/core/agents/__init__.py", line 2, in <module>
-    from .tool_agent import ToolAgent
-File "/mount/src/agent_business/core/agents/tool_agent.py", line 5, in <module>
-    from langchain.agents import AgentExecutor, create_tool_calling_agent
+[02:59:47] 🚀 Starting up repository: 'agent_business', branch: 'master', main module: 'streamlit_app.py'
+
+[02:59:47] 🐙 Cloning repository...
+
+[02:59:47] 🐙 Cloning into '/mount/src/agent_business'...
+
+[02:59:47] 🐙 Cloned repository!
+
+[02:59:47] 🐙 Pulling code changes from Github...
+
+[02:59:48] 📦 Processing dependencies...
+
+[02:59:48] 📦 Apt dependencies were installed from /mount/src/agent_business/packages.txt using apt-get.
+
+Hit:1 http://deb.debian.org/debian bookworm InRelease
+
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+
+Get:3 https://packages.microsoft.com/debian/11/prod bullseye InRelease [3650 B]
+
+Get:4 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+
+Get:5 https://packages.microsoft.com/debian/11/prod bullseye/main arm64 Packages [58.6 kB]
+
+Get:6 https://packages.microsoft.com/debian/11/prod bullseye/main amd64 Packages [213 kB]
+
+Get:7 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [287 kB]
+
+Fetched 666 kB in 1s (1269 kB/s)
+
+[02:59:49] 🖥 Provisioning machine...
+
+[02:59:49] 🎛 Preparing system...
+
+[02:59:49] ⛓ Spinning up manager process...
+
+Reading package lists...[2025-11-19 02:59:50.188916] 
+
+Building dependency tree...[2025-11-19 02:59:50.377980] 
+
+Reading state information...[2025-11-19 02:59:50.378344] 
+
+unixodbc-dev is already the newest version (2.3.11-3).
+
+0 upgraded, 0 newly installed, 0 to remove and 1 not upgraded.
+
+
+──────────────────────────────────────── uv ───────────────────────────────────────────
+
+
+Using uv pip install.
+
+Using Python 3.11.14 environment at /home/adminuser/venv
+
+Resolved 89 packages in 1.46s
+
+Prepared 89 packages in 3.09s
+
+Installed 89 packages in 882ms
+
+ + aiohappyeyeballs==2.6.1
+
+ + aiohttp==3.13.2
+
+ + aiosignal==1.4.0
+
+ + altair==5.5.0
+
+ + annotated-types==0.7.0
+
+ + anyio==4.11.0
+
+ + attrs==25.4.0
+
+ + bcrypt==5.0.0
+
+ + blinker==1.9.0
+
+ + cachetools==6.2.2
+
+ + certifi==2025.11.12
+
+ + charset-normalizer==3.4.4
+
+ + click==8.3.1
+
+ + dataclasses-json==0.6.7
+
+ + flask==3.1.2
+
+ + frozenlist==1.8.0
+
+ +[2025-11-19 02:59:56.260473]  gitdb==4.0.12
+
+ + gitpython==3.1.45
+
+ + google-ai-generativelanguage==0.4.0
+
+ +[2025-11-19 02:59:56.260660]  google-api-core==2.28.1
+
+ + google-auth==2.43.0
+
+ + google-generativeai==0.4.1
+
+ + googleapis-common-protos==1.72.0
+
+ + greenlet[2025-11-19 02:59:56.260894] ==3.2.4
+
+ + grpcio==1.76.0
+
+ + grpcio-status==1.62.3
+
+ + h11==0.16.0
+
+ + httpcore==1.0.9[2025-11-19 02:59:56.261047] 
+
+ + httpx==0.28.1
+
+ + idna==3.11
+
+ + itsdangerous==2.2.0[2025-11-19 02:59:56.261283] 
+
+ + jinja2==3.1.6
+
+ + jsonpatch==1.33
+
+ + jsonpointer==3.0.0
+
+ + jsonschema==4.25.1
+
+ [2025-11-19 02:59:56.261479] + jsonschema-specifications==2025.9.1
+
+ + langchain==0.1.20
+
+ + langchain-community==0.0.38
+
+ + langchain-core==0.1.52
+
+ + [2025-11-19 02:59:56.261685] langchain-google-genai==0.0.11
+
+ + langchain-text-splitters==0.0.2
+
+ + langsmith==0.1.147
+
+ + markupsafe==3.0.3
+
+ +[2025-11-19 02:59:56.261807]  marshmallow==3.26.1
+
+ + multidict==6.7.0
+
+ + mypy-extensions==1.1.0
+
+ + narwhals==2.12.0
+
+ + numpy==1.26.4
+
+ + orjson==3.11.4
+
+ + packaging==23.2
+
+ + pandas==2.3.3
+
+ + pillow==12.0.0
+
+ + plotly==6.5.0
+
+ + propcache==0.4.1
+
+ + proto-plus==[2025-11-19 02:59:56.262307] 1.26.1
+
+ + protobuf==4.25.8
+
+ + pyarrow==21.0.0
+
+ + pyasn1==0.6.1
+
+ + pyasn1-modules==[2025-11-19 02:59:56.262451] 0.4.2
+
+ + pydantic==2.12.4
+
+ + pydantic-core==2.41.5
+
+ + pydeck==0.9.1
+
+ + pyodbc[2025-11-19 02:59:56.262562] ==5.3.0
+
+ + python-dateutil==2.9.0.post0
+
+ + python-dotenv==1.2.1
+
+ + pytz==2025.2
+
+ +[2025-11-19 02:59:56.262677]  pyyaml==6.0.3
+
+ + referencing==0.37.0
+
+ + requests==2.32.5
+
+ + requests-toolbelt==1.0.0[2025-11-19 02:59:56.262809] 
+
+ + rpds-py==0.29.0
+
+ + rsa==4.9.1
+
+ + six==1.17.0
+
+ + smmap==5.0.2[2025-11-19 02:59:56.262938] 
+
+ + sniffio==1.3.1
+
+ + sqlalchemy==2.0.44
+
+ + streamlit==1.51.0
+
+ + tenacity==8.5.0[2025-11-19 02:59:56.263074] 
+
+ + toml==0.10.2
+
+ + tornado==6.5.2
+
+ + tqdm==4.67.1
+
+ + typing-extensions[2025-11-19 02:59:56.263263] ==4.15.0
+
+ + typing-inspect==0.9.0
+
+ + typing-inspection==0.4.2
+
+ + tzdata==2025.2
+
+ [2025-11-19 02:59:56.263366] + urllib3==2.5.0
+
+ + watchdog==6.0.0
+
+ + werkzeug==3.1.3
+
+ + yarl==1.22.0
+
+Checking if Streamlit is installed
+
+Found Streamlit version 1.51.0 in the environment
+
+Installing rich for an improved exception logging
+
+Using uv pip install.
+
+Using Python 3.11.14 environment at /home/adminuser/venv
+
+Resolved [2025-11-19 02:59:58.150931] 4 packages[2025-11-19 02:59:58.151033]  [2025-11-19 02:59:58.151246] in 129ms[2025-11-19 02:59:58.151398] 
+
+Prepared 4 packages in 138ms
+
+Installed 4 packages in 23ms
+
+ + markdown-it-py==4.0.0
+
+ + mdurl==0.1.2
+
+ + pygments==2.19.2
+
+ + rich==14.2.0
+
+
+────────────────────────────────────────────────────────────────────────────────────────
+
+
+[02:59:58] 🐍 Python dependencies were installed from /mount/src/agent_business/requirements.txt using uv.
+
+Check if streamlit is installed
+
+Streamlit is already installed
+
+[03:00:00] 📦 Processed dependencies!
+
+
+
+
+Aviso: Arquivo .env não encontrado em '/mount/src/agent_business/.env'. As configurações dependerão das variáveis de ambiente do sistema.
+
+2025-11-19 03:01:32,206 - __main__ - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Iniciando a aplicação Streamlit.
+
+2025-11-19 03:01:32,207 - core.llm_factory - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Inicializando adaptador Gemini.
+
+2025-11-19 03:01:32,207 - core.llm_gemini_adapter - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Gemini adapter inicializado com modelo: gemini-2.0-flash-lite
+
+2025-11-19 03:01:32,207 - core.llm_gemini_adapter - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - GEMINI_API_KEY carregada (final ...djRw)
+
+2025-11-19 03:01:32,207 - core.llm_factory - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Adaptador Gemini inicializado com sucesso
+
+2025-11-19 03:01:32,207 - core.agents.supervisor_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - SupervisorAgent inicializado.
+
+2025-11-19 03:01:32,207 - core.query_processor - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - QueryProcessor inicializado e pronto para delegar ao SupervisorAgent.
+
+2025-11-19 03:01:37,994 - __main__ - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Iniciando a aplicação Streamlit.
+
+2025-11-19 03:01:39,138 - __main__ - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Iniciando a aplicação Streamlit.
+
+2025-11-19 03:01:49,531 - __main__ - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Iniciando a aplicação Streamlit.
+
+2025-11-19 03:01:49,537 - core.query_processor - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Delegando a consulta para o Supervisor: "qual é o lucro do item 9"
+
+2025-11-19 03:01:49,537 - core.agents.supervisor_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Roteando consulta padrão para ToolAgent: 'qual é o lucro do item 9'
+
+2025-11-19 03:01:49,540 - core.agents.tool_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - ToolAgent inicializado com adaptador Gemini.
+
+2025-11-19 03:01:49,540 - core.agents.supervisor_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - ToolAgent inicializado (lazy)
+
+2025-11-19 03:01:49,541 - core.agents.tool_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - Processando query com o Agente de Ferramentas: qual é o lucro do item 9
+
+
+
+> Entering new AgentExecutor chain...
+
+2025-11-19 03:01:49,581 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - ---- DADOS ENVIADOS PARA GEMINI API (tentativa 1) ----
+
+2025-11-19 03:01:49,581 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - MENSAGENS: [
+
+  {
+
+    "role": "user",
+
+    "parts": [
+
+      {
+
+        "text": "Você é um Agente de Negócios versátil, capaz de responder a perguntas sobre dados e gerar gráficos. Sua principal função é usar as ferramentas disponíveis para responder diretamente às perguntas do usuário.\n\nREGRA FUNDAMENTAL: SEMPRE que o usuário perguntar sobre dados de produtos/items, você DEVE usar a ferramenta `consultar_dados`. NUNCA responda que não pode determinar algo sem antes tentar usar a ferramenta apropriada.\n\nREGRA DE DASHBOARDS: Quando o usuário pedir 'dashboard', 'visão geral', 'resumo executivo', ou 'análise completa', use AUTOMATICAMENTE o `gerar_dashboard_executivo()` pois ele fornece 6 gráficos otimizados para decisão gerencial.\n\n## COLUNAS DISPONÍVEIS NO DATASET:\nUse os nomes EXATOS das colunas abaixo:\n\n### Identificação:\n- ITEM (número do item/produto)\n- CODIGO (código do produto)\n- DESCRIÇÃO (descrição do produto)\n- FABRICANTE (fabricante do produto)\n- GRUPO (grupo/categoria do produto)\n\n### Valores Financeiros:\n- VENDA R$ (valor total de vendas em reais)\n- DESC. R$ (desconto em reais)\n- CUSTO R$ (custo total em reais)\n- LUCRO R$ (lucro total em reais)\n- CUSTO UNIT R$ (custo unitário em reais)\n- VENDA UNIT R$ (venda unitária em reais)\n\n### Percentuais e Margens:\n- LUCRO TOTAL % (percentual de lucro total)\n- LUCRO UNIT % (percentual de lucro unitário)\n- CLASSIFICACAO_MARGEM (classificação da margem de lucro)\n\n### Quantidades:\n- QTD (quantidade vendida)\n- SALDO (saldo em estoque)\n- QTD ULTIMA COMPRA (quantidade da última compra)\n\n### Vendas Mensais:\n- VENDA QTD JAN (vendas em janeiro)\n- VENDA QTD FEV (vendas em fevereiro)\n- VENDA QTD MAR (vendas em março)\n- VENDA QTD ABR (vendas em abril)\n- VENDA QTD MAI (vendas em maio)\n- VENDA QTD JUN (vendas em junho)\n- VENDA QTD JUL (vendas em julho)\n- VENDA QTD AGO (vendas em agosto)\n- VENDA QTD SET (vendas em setembro)\n- VENDA QTD OUT (vendas em outubro)\n- VENDA QTD NOV (vendas em novembro)\n- VENDA QTD DEZ (vendas em dezembro)\n\n### Análises e Métricas:\n- VENDAS_TOTAL_ANO (total de vendas no ano)\n- VENDAS_MEDIA_MENSAL (média de vendas mensal)\n- DIAS_COBERTURA (dias de cobertura de estoque)\n- STATUS_ESTOQUE (status do estoque)\n\n### Valores de Estoque:\n- VLR ESTOQUE VENDA (valor do estoque a preço de venda)\n- VLR ESTOQUE CUSTO (valor do estoque a preço de custo)\n\n### Datas:\n- DT CADASTRO (data de cadastro do produto)\n- DT ULTIMA COMPRA (data da última compra)\n\n## REGRAS DE USO DAS FERRAMENTAS:\n\n1. Para consultar dados específicos de um produto/item:\n   - Use: `consultar_dados(coluna='ITEM', valor='X', coluna_retorno='NOME_COLUNA')`\n   - Exemplo 1: 'Qual o lucro do produto 9?' → `consultar_dados(coluna='ITEM', valor='9', coluna_retorno='LUCRO R$')`\n   - Exemplo 2: 'Qual o fabricante do item 5?' → `consultar_dados(coluna='ITEM', valor='5', coluna_retorno='FABRICANTE')`\n   - Exemplo 3: 'Quantos dias de cobertura tem o item 5?' → `consultar_dados(coluna='ITEM', valor='5', coluna_retorno='DIAS_COBERTURA')`\n   - Exemplo 4: 'Qual a cobertura de estoque do produto 9?' → `consultar_dados(coluna='ITEM', valor='9', coluna_retorno='DIAS_COBERTURA')`\n   - Exemplo 5: 'Qual o status de estoque do item 1?' → `consultar_dados(coluna='ITEM', valor='1', coluna_retorno='STATUS_ESTOQUE')`\n\n2. Para obter TODOS os dados de um produto:\n   - Use: `consultar_dados(coluna='ITEM', valor='X')` SEM especificar coluna_retorno\n   - Exemplo: 'Me fale sobre o produto 9' → `consultar_dados(coluna='ITEM', valor='9')`\n\n3. Para listar colunas disponíveis:\n   - Use: `listar_colunas_disponiveis()` quando o usuário perguntar sobre estrutura dos dados\n\n4. Para gráficos de produto específico:\n   - Use: `gerar_grafico_vendas_mensais_produto(codigo_produto=X)`\n   - Exemplo: 'Gráfico de vendas do produto 9' → `gerar_grafico_vendas_mensais_produto(codigo_produto=9)`\n\n5. Para gráficos de vendas por grupo/categoria:\n   - Use: `gerar_grafico_vendas_por_grupo(nome_grupo='NOME_DO_GRUPO')`\n   - Exemplo 1: 'Gráfico de vendas do grupo de esmaltes' → `gerar_grafico_vendas_por_grupo(nome_grupo='esmaltes')`\n   - Exemplo 2: 'Vendas mensais da categoria cremes' → `gerar_grafico_vendas_por_grupo(nome_grupo='cremes')`\n   - Exemplo 3: 'Evolução de vendas dos produtos de maquiagem' → `gerar_grafico_vendas_por_grupo(nome_grupo='maquiagem')`\n\n6. Para rankings:\n   - Use: `gerar_ranking_produtos_mais_vendidos(top_n=N)`\n\n7. Para dashboards completos:\n   - Dashboard Executivo (RECOMENDADO para visão geral): `gerar_dashboard_executivo()`\n   - Dashboard Análise Completa: `gerar_dashboard_analise_completa()`\n   - Dashboard Dinâmico: `gerar_dashboard_dinamico(graficos=['nome1', 'nome2'])`\n   - Exemplo 1: 'Mostre um dashboard executivo' → `gerar_dashboard_executivo()`\n   - Exemplo 2: 'Quero ver um dashboard completo' → `gerar_dashboard_executivo()`\n   - Exemplo 3: 'Dashboard com vendas e estoque' → `gerar_dashboard_dinamico(graficos=['gerar_ranking_produtos_mais_vendidos', 'gerar_grafico_estoque_por_produto'])`\n\n8. Para listar gráficos disponíveis:\n   - Use: `listar_graficos_disponiveis()` quando o usuário perguntar 'quais gráficos você pode gerar?'\n\n## TERMOS COMUNS E MAPEAMENTO:\n- 'lucro' ou 'rentabilidade' → LUCRO R$\n- 'margem' ou 'lucro percentual' → LUCRO TOTAL % ou LUCRO UNIT %\n- 'vendas' ou 'faturamento' → VENDA R$\n- 'produto', 'item' → ITEM\n- 'código' → CODIGO\n- 'estoque' ou 'saldo' → SALDO ou VLR ESTOQUE VENDA/CUSTO\n- 'cobertura', 'dias de cobertura', 'cobertura de estoque' → DIAS_COBERTURA\n- 'status do estoque', 'situação do estoque' → STATUS_ESTOQUE\n\nIMPORTANTE: Quando uma ferramenta retornar uma resposta, repasse-a DIRETAMENTE ao usuário sem adicionar comentários."
+
+      }
+
+    ]
+
+  },
+
+  {
+
+    "role": "user",
+
+    "parts": [
+
+      {
+
+        "text": "qual é o lucro do item 9"
+
+      }
+
+    ]
+
+  }
+
+]
+
+2025-11-19 03:01:49,581 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - FERRAMENTAS: [<google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7b410>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b352d0>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f441c4090>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f4410e650>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f43717190>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b5b190>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b5b850>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b57a10>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b5ba10>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42d8f010>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f4410f990>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7b910>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7bb50>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b57e10>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7bcd0>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7bbd0>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b7bb10>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f44127f90>, <google.generativeai.types.content_types.FunctionDeclaration object at 0x7d3f42b94150>]
+
+2025-11-19 03:01:49,581 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - --------------------------------------------------
+
+2025-11-19 03:01:49,583 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - Chamada Gemini (tentativa 1/3)
+
+2025-11-19 03:01:50,303 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - ---- RESPOSTA BRUTA DA GEMINI API (tentativa 1) ----
+
+2025-11-19 03:01:50,303 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - response:
+
+GenerateContentResponse(
+
+    done=True,
+
+    iterator=None,
+
+    result=glm.GenerateContentResponse({'candidates': [{'content': {'parts': [{'function_call': {'name': 'consultar_dados', 'args': {'coluna': 'ITEM', 'coluna_retorno': 'LUCRO R$', 'valor': '9'}}}], 'role': 'model'}, 'finish_reason': 1, 'safety_ratings': [], 'token_count': 0, 'grounding_attributions': []}]}),
+
+)
+
+2025-11-19 03:01:50,304 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - -----------------------------------------------------
+
+2025-11-19 03:01:50,304 - core.llm_gemini_adapter - INFO - f403d1d7-5bdd-4cae-9d20-b3378734d52b - Chamada Gemini concluída.
+
+
+
+> Finished chain.
+
+2025-11-19 03:01:50,306 - core.agents.tool_agent - INFO - 5c4a0db5-19b2-4ea3-ace5-4c09e8f527e0 - CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {'input': 'qual é o lucro do item 9', 'chat_history': [], 'output': '', 'intermediate_steps': []}
+
+master
