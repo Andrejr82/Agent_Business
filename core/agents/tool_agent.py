@@ -246,7 +246,10 @@ class ToolAgent:
                 }
 
             # Se a resposta final for um AgentFinish, o output já está no formato final
-            if isinstance(response.get("output"), str) and response.get("output"):
+            # A verificação 'and response.get("output")' foi removida para permitir strings vazias,
+            # mas o log mostra que o LLM está retornando uma string vazia.
+            # Vamos garantir que o output seja capturado, mesmo que vazio, e o parse_agent_response lide com isso.
+            if isinstance(response.get("output"), str):
                 final_output = response["output"]
             
             # Processamento legado para texto (se necessário, mas o output do LLM deve ser o principal)
