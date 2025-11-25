@@ -1,6 +1,17 @@
 # core/llm_langchain_adapter.py
+"""
+Adaptador LangChain para integração com LLM Gemini.
+
+CORREÇÕES APLICADAS:
+1. Tratamento robusto para resposta vazia do LLM
+2. Logging detalhado para debug
+3. Fallback para mensagem padrão quando content está vazio
+4. Tratamento de erros de API key
+"""
+
 from typing import Any, List, Optional, Dict
 import json
+import logging
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
@@ -21,6 +32,10 @@ from langchain_core.outputs import (
 )
 
 from core.llm_base import BaseLLMAdapter
+
+
+# Configurar logger para este módulo
+logger = logging.getLogger(__name__)
 
 
 def _clean_json_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,8 +64,17 @@ def _clean_json_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class CustomLangChainLLM(BaseChatModel):
+    """
+    Adaptador customizado do LangChain para usar com GeminiLLMAdapter.
+    
+    CORREÇÕES:
+    - Tratamento de resposta vazia
+    - Logging detalhado
+    - Fallback messages
+    """
+    
     llm_adapter: BaseLLMAdapter
-    tools: Optional[List[Any]] = None # Adicionado para permitir o campo 'tools'
+    tools: Optional[List[Any]] = None
 
     @property
     def _llm_type(self) -> str:
@@ -64,20 +88,9 @@ class CustomLangChainLLM(BaseChatModel):
         tools: List[Any],
         **kwargs: Any,
     ) -> "CustomLangChainLLM":
-        """Bind tools to the model.
-
-        Args:
-            tools: A list of tools to bind to the model.
-            kwargs: Additional keyword arguments.
-
-        Returns:
-            A new instance of the model with the tools bound.
-        """
-        # Create a new instance of the model with the tools bound
-        # This is a simplified implementation. In a real scenario, you might
-        # want to create a new runnable that wraps the model and the tools.
+        """Bind tools to the model."""
         new_instance = self.__class__(llm_adapter=self.llm_adapter, **kwargs)
-        new_instance.tools = tools  # Store tools for _generate to access
+        new_instance.tools = tools
         return new_instance
 
     def _generate(
@@ -87,8 +100,21 @@ class CustomLangChainLLM(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
+        """
+        Gera resposta usando o LLM adapter.
+        
+        CORREÇÕES:
+        1. Log detalhado das mensagens e resposta
+        2. Tratamento de resposta vazia
+        3. Fallback para mensagem padrão
+        """
+        
+        # =====================================================================
+        # CORREÇÃO: Log das mensagens de entrada para debug
+        # =====================================================================
+        logger.debug(f"_generate chamado com {len(messages)} mensagens")
+        
         # Convert LangChain messages to a generic dictionary format
-        # that GeminiLLMAdapter can understand (similar to OpenAI-like format)
         generic_messages = []
         for msg in messages:
             if isinstance(msg, HumanMessage):
@@ -118,41 +144,30 @@ class CustomLangChainLLM(BaseChatModel):
                         {"role": "model", "content": msg.content}
                     )
             elif isinstance(msg, SystemMessage):
-                # Treat SystemMessage as a user message for Gemini
                 generic_messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, FunctionMessage):
-                # FunctionMessage is typically a tool response in LangChain
-                # Convert it to a user message with function_response for Gemini
                 generic_messages.append(
                     {
                         "role": "user",
-                        "function_call": { # This key is used by GeminiLLMAdapter to identify tool responses
-                            "name": msg.name, # The name of the tool that was called
+                        "function_call": {
+                            "name": msg.name,
                             "response": {"content": str(msg.content)}
                         }
                     }
                 )
             elif isinstance(msg, ToolMessage):
-                # ToolMessage is also a tool response in LangChain
-                # Convert it to a user message with function_response for Gemini
-
-                # Extract tool name from ToolMessage
                 tool_name = msg.name
-
-                # Fallback: if name is empty, try to extract from tool_call_id
                 if not tool_name or tool_name == "":
                     if hasattr(msg, 'tool_call_id') and msg.tool_call_id:
-                        # tool_call_id format is typically "call_<function_name>"
                         tool_name = msg.tool_call_id.replace("call_", "")
                     else:
-                        # Last resort: use a default name
                         tool_name = "unknown_tool"
 
                 generic_messages.append(
                     {
-                        "role": "user", # Tool responses are part of the user's turn
-                        "function_call": { # This key is used by GeminiLLMAdapter to identify tool responses
-                            "name": tool_name,  # The name of the tool that was called
+                        "role": "user",
+                        "function_call": {
+                            "name": tool_name,
                             "response": {"content": str(msg.content)}
                         }
                     }
@@ -160,32 +175,26 @@ class CustomLangChainLLM(BaseChatModel):
             else:
                 raise ValueError(f"Unsupported message type: {type(msg)}")
 
-        # Check if tools were bound via bind_tools or passed directly in kwargs
+        # Process tools
         tools_to_pass = getattr(self, 'tools', None) or kwargs.get("tools")
         if tools_to_pass:
             generic_tools_declarations = []
             for tool in tools_to_pass:
                 if hasattr(tool, 'name') and hasattr(tool, 'description') and hasattr(tool, 'args'):
-                    # LangChain's StructuredTool has 'name', 'description', and 'args'
-                    # 'args' is already a dictionary representing the parameters
-                    
-                    # Infer required parameters: those without a default value
                     required_params = [
                         param for param, details in tool.args.items() 
                         if details.get("default") is None and details.get("type") != "null"
                     ]
 
-                    # Create a copy of tool.args and remove 'default' if it's causing issues
                     processed_args = {}
                     for param, details in tool.args.items():
                         param_details = details.copy()
                         if "default" in param_details:
-                            del param_details["default"] # Remover a chave 'default'
-                        if "title" in param_details: # Remover a chave 'title'
+                            del param_details["default"]
+                        if "title" in param_details:
                             del param_details["title"]
                         processed_args[param] = param_details
 
-                    # Limpar o esquema de processed_args para remover 'anyOf'
                     cleaned_processed_args = _clean_json_schema(processed_args)
 
                     generic_tools_declarations.append(
@@ -194,62 +203,136 @@ class CustomLangChainLLM(BaseChatModel):
                             "description": tool.description,
                             "parameters": {
                                 "type": "object",
-                                "properties": cleaned_processed_args, # Usar cleaned_processed_args
+                                "properties": cleaned_processed_args,
                                 "required": required_params,
                             },
                         }
                     )
                 elif isinstance(tool, dict) and "name" in tool and "description" in tool and "parameters" in tool:
-                    # If it's already a dictionary in the expected function declaration format
                     generic_tools_declarations.append(tool)
                 else:
-                    # Fallback for other tool types or if the tool object is not fully formed
-                    # This might need more robust handling depending on actual tool types
-                    print(f"Warning: Unexpected tool format encountered: {type(tool)} - {tool}")
+                    logger.warning(f"Unexpected tool format encountered: {type(tool)} - {tool}")
                     if hasattr(tool, 'name') and hasattr(tool, 'description'):
                          generic_tools_declarations.append(
                                 {
                                     "name": tool.name,
                                     "description": tool.description,
-                                    "parameters": {"type": "object", "properties": {}}, # Empty parameters
+                                    "parameters": {"type": "object", "properties": {}},
                                 }
                         )
                     else:
                         raise ValueError(f"Unsupported tool object: {tool}")
 
-            # Gemini API expects a single list of function declarations under a 'function_declarations' key
             tools_to_pass = {"function_declarations": generic_tools_declarations}
         else:
             tools_to_pass = None
 
-
+        # =====================================================================
+        # Chamar o LLM Adapter
+        # =====================================================================
+        logger.debug(f"Chamando llm_adapter.get_completion com {len(generic_messages)} mensagens")
+        
         llm_response = self.llm_adapter.get_completion(
             messages=generic_messages, tools=tools_to_pass
         )
 
+        # =====================================================================
+        # CORREÇÃO: Log detalhado da resposta do LLM
+        # =====================================================================
+        logger.info(f"Resposta do LLM Adapter: {llm_response}")
+
+        # =====================================================================
+        # CORREÇÃO: Tratamento de erro
+        # =====================================================================
         if "error" in llm_response:
-            raise Exception(f"LLM Adapter Error: {llm_response['error']}")
+            error_msg = llm_response['error']
+            logger.error(f"Erro do LLM Adapter: {error_msg}")
+            
+            # Verificar se é erro de API key
+            error_lower = str(error_msg).lower()
+            if "403" in error_lower or "leaked" in error_lower or "api key" in error_lower:
+                raise Exception(
+                    f"Erro de autenticação com o Gemini: {error_msg}. "
+                    f"Por favor, verifique se sua API key está válida."
+                )
+            
+            raise Exception(f"LLM Adapter Error: {error_msg}")
 
-        content = llm_response.get("content") or ""
+        # =====================================================================
+        # CORREÇÃO: Extrair content com tratamento de resposta vazia
+        # =====================================================================
+        content = llm_response.get("content")
         tool_calls_data = llm_response.get("tool_calls")
+        warning = llm_response.get("warning")
+        
+        # Log de warning se houver
+        if warning:
+            logger.warning(f"Warning do LLM: {warning}")
 
+        # =====================================================================
+        # CORREÇÃO PRINCIPAL: Tratamento de content vazio
+        # =====================================================================
+        if content is None:
+            content = ""
+            logger.warning("LLM retornou content=None, usando string vazia")
+        
+        # Verificar se content está vazio E não há tool_calls
+        content_is_empty = not content or not str(content).strip()
+        has_tool_calls = tool_calls_data and len(tool_calls_data) > 0
+        
+        if content_is_empty and not has_tool_calls:
+            logger.warning(
+                f"⚠️ LLM retornou resposta vazia sem tool_calls! "
+                f"Response: {llm_response}"
+            )
+            
+            # =====================================================================
+            # CORREÇÃO: Usar mensagem de fallback em vez de string vazia
+            # =====================================================================
+            content = (
+                "Não foi possível processar sua solicitação no momento. "
+                "Por favor, tente reformular sua pergunta."
+            )
+            logger.info(f"Usando mensagem de fallback: {content}")
+
+        # =====================================================================
+        # Processar tool_calls se houver
+        # =====================================================================
         lc_tool_calls = []
         if tool_calls_data:
+            logger.debug(f"Processando {len(tool_calls_data)} tool_calls")
             for tc_data in tool_calls_data:
                 try:
-                    # tc_data is already a dictionary from GeminiLLMAdapter
                     args = json.loads(tc_data["function"]["arguments"])
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(f"Erro ao parsear argumentos da tool: {e}")
                     args = {
                         "error": "Argumentos em formato JSON inválido",
                         "received": tc_data["function"]["arguments"],
                     }
 
                 lc_tool_calls.append(
-                    ToolCall(name=tc_data["function"]["name"], args=args, id=tc_data["id"])
+                    ToolCall(
+                        name=tc_data["function"]["name"], 
+                        args=args, 
+                        id=tc_data["id"]
+                    )
                 )
+            
+            # Se tem tool_calls, o content deve ser vazio para o LangChain funcionar corretamente
+            if lc_tool_calls:
+                content = ""
+                logger.debug(f"Tool calls detectadas, content definido como vazio")
 
+        # =====================================================================
+        # Criar AIMessage e retornar
+        # =====================================================================
         ai_message = AIMessage(content=content, tool_calls=lc_tool_calls)
+        
+        logger.debug(
+            f"Retornando AIMessage com content={content[:100] if content else 'vazio'}... "
+            f"e {len(lc_tool_calls)} tool_calls"
+        )
 
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
 
@@ -271,12 +354,45 @@ class CustomLangChainLLM(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        chat_result = self._generate(messages, stop, run_manager, **kwargs)
-        generation = chat_result.generations[0]
-        ai_message = generation.message
+        """
+        Streaming - delega para _generate.
+        
+        CORREÇÃO: Tratamento de erro adicionado.
+        """
+        try:
+            chat_result = self._generate(messages, stop, run_manager, **kwargs)
+            
+            if not chat_result.generations:
+                logger.warning("_generate retornou sem generations")
+                # Criar uma generation de fallback
+                fallback_message = AIMessage(
+                    content="Não foi possível gerar uma resposta.",
+                    tool_calls=[]
+                )
+                yield ChatGenerationChunk(
+                    message=AIMessageChunk(
+                        content=fallback_message.content,
+                        tool_calls=fallback_message.tool_calls
+                    )
+                )
+                return
+            
+            generation = chat_result.generations[0]
+            ai_message = generation.message
 
-        message_chunk = AIMessageChunk(
-            content=ai_message.content, tool_calls=ai_message.tool_calls
-        )
+            message_chunk = AIMessageChunk(
+                content=ai_message.content, 
+                tool_calls=ai_message.tool_calls
+            )
 
-        yield ChatGenerationChunk(message=message_chunk)
+            yield ChatGenerationChunk(message=message_chunk)
+            
+        except Exception as e:
+            logger.error(f"Erro no _stream: {e}", exc_info=True)
+            
+            # Yield uma mensagem de erro em vez de propagar a exceção
+            error_message = AIMessageChunk(
+                content=f"Erro ao processar: {str(e)}",
+                tool_calls=[]
+            )
+            yield ChatGenerationChunk(message=error_message)
