@@ -238,10 +238,24 @@ class ToolAgent:
                     "output": final_output,
                 }
 
-            # Processamento legado para texto
+            # Se o tipo de resposta for gráfico, retorna diretamente
+            if response_type == "chart":
+                return {
+                    "type": "chart",
+                    "output": final_output,
+                }
+
+            # Se a resposta final for um AgentFinish, o output já está no formato final
+            if isinstance(response.get("output"), str) and response.get("output"):
+                final_output = response["output"]
+            
+            # Processamento legado para texto (se necessário, mas o output do LLM deve ser o principal)
+            # A função parse_agent_response é mantida para compatibilidade, mas o foco é o output do LLM
             response_type, processed = parse_agent_response(final_output)
+            
+            # Retorna o output processado ou o output final do LLM como fallback
             return {
-                "type": "text", # Changed from response_type to "text" to ensure text output for general queries
+                "type": "text",
                 "output": processed.get("output", final_output),
             }
 
