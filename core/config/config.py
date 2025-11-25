@@ -283,7 +283,7 @@ class Config:
 
     # =========================================================================
     # CORREÇÃO: Gemini API Key and Model Name
-    # Modelo padrão alterado para gemini-1.5-flash (mais estável)
+    # Modelo padrão alterado para gemini-1.5-flash-latest (mais estável)
     # =========================================================================
     @classmethod
     @property
@@ -293,8 +293,8 @@ class Config:
     @classmethod
     @property
     def GEMINI_MODEL_NAME(cls) -> str:
-        # CORREÇÃO: Modelo padrão alterado de gemini-2.5-flash para gemini-1.5-flash
-        return cls._get_secret("GEMINI_MODEL_NAME", "gemini-1.5-flash")
+        # CORREÇÃO: Modelo padrão alterado de gemini-2.5-flash-lite para gemini-1.5-flash-latest
+        return cls._get_secret("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest")
 
     # =========================================================================
     # LLM Provider Selection
