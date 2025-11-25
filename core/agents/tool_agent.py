@@ -1,15 +1,13 @@
 # core/agents/tool_agent.py
 import logging
 import sys
-from typing import Any, Dict, List  # Import List for chat_history type hint
+from typing import Any, Dict, List
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import (
-    BaseMessage,
-)  # Import BaseMessage for type hinting chat_history
+from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_core.agents import AgentAction, AgentFinish # Importar AgentAction e AgentFinish
+from langchain_core.agents import AgentAction, AgentFinish
 
 from core.llm_base import BaseLLMAdapter
 from core.llm_gemini_adapter import GeminiLLMAdapter
@@ -47,7 +45,8 @@ class ToolAgent:
                     "2. NUNCA mencione nomes técnicos de colunas (como 'LUCRO R$', 'ITEM', 'VENDA R$') na resposta final\n"
                     "3. Use linguagem de negócios: 'lucro', 'vendas', 'produto', 'item', etc.\n"
                     "4. Seja direto e objetivo, mas amigável\n"
-                    "5. Use formatação em Markdown para destacar valores importantes (negrito para números)\n\n"
+                    "5. Use formatação em Markdown para destacar valores importantes (negrito para números)\n"
+                    "6. IMPORTANTE: Você DEVE SEMPRE fornecer uma resposta. NUNCA retorne uma resposta vazia.\n\n"
 
                     "EXEMPLOS DE RESPOSTAS HUMANIZADAS:\n"
                     "❌ ERRADO: 'O valor da coluna LUCRO R$ para o item com ITEM='9' é '18.49'.'\n"
@@ -180,16 +179,46 @@ class ToolAgent:
             agent=agent,
             tools=self.tools,
             verbose=True,
-            return_intermediate_steps=True, # Adicionado para obter os passos intermediários
+            return_intermediate_steps=True,
+            handle_parsing_errors=True,  # CORREÇÃO: Adicionar tratamento de erros de parsing
+            max_iterations=5,  # CORREÇÃO: Limitar iterações para evitar loops
         )
+
+    def _extract_response_from_intermediate_steps(
+        self, intermediate_steps: list
+    ) -> tuple:
+        """
+        Extrai resposta dos passos intermediários quando o output está vazio.
+        
+        Retorna: (response_type, final_output)
+        """
+        if not intermediate_steps:
+            return None, None
+            
+        for step in reversed(intermediate_steps):
+            if isinstance(step, tuple) and len(step) == 2:
+                action, observation = step
+                
+                # Se a observação for um dicionário de gráfico
+                if isinstance(observation, dict):
+                    if observation.get("status") == "success" and "chart_data" in observation:
+                        self.logger.info(f"Extraindo dados do gráfico da ferramenta: {action.tool}")
+                        return "chart", observation["chart_data"]
+                
+                # Se a observação for uma string não vazia
+                if isinstance(observation, str) and observation.strip():
+                    self.logger.info(f"Extraindo resposta da ferramenta {action.tool}: {observation[:100]}...")
+                    return "text", observation
+        
+        return None, None
 
     def process_query(
         self, query: str, chat_history: List[BaseMessage] = None
     ) -> Dict[str, Any]:
         """Processa a query do usuário usando o agente LangChain."""
         self.logger.info(f"Processando query com o Agente de Ferramentas: {query}")
+        
         try:
-            # Ensure chat_history is not None for invoke
             if chat_history is None:
                 chat_history = []
 
@@ -199,71 +228,150 @@ class ToolAgent:
                 f"Invocando agente com query: {query} "
                 f"e chat_history: {chat_history}"
             )
+            
             response = self.agent_executor.invoke(
                 {"input": query, "chat_history": chat_history}, config=config
             )
+            
             self.logger.debug(f"Resposta bruta do agente: {response}")
-
-            # Adicionando log detalhado para depuração
             self.logger.info(f"CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {response}")
 
-            final_output = response.get("output", "Não foi possível gerar uma resposta.")
-            response_type = "text" # Padrão
+            # Extrair output e intermediate_steps
+            final_output = response.get("output", "")
+            intermediate_steps = response.get("intermediate_steps", [])
+            response_type = "text"
 
-            # Verificar se há passos intermediários e extrair a saída da ferramenta se aplicável
-            if "intermediate_steps" in response and response["intermediate_steps"]:
-                for step in reversed(response["intermediate_steps"]):
+            # =====================================================================
+            # CORREÇÃO PRINCIPAL: Tratamento para resposta vazia
+            # =====================================================================
+            
+            # Verificar se o output está vazio ou é apenas whitespace
+            is_output_empty = not final_output or not str(final_output).strip()
+            
+            if is_output_empty:
+                self.logger.warning(
+                    f"Output do agente está vazio. "
+                    f"Tentando extrair de intermediate_steps ({len(intermediate_steps)} passos)"
+                )
+                
+                # Tentar extrair resposta dos passos intermediários
+                extracted_type, extracted_output = self._extract_response_from_intermediate_steps(
+                    intermediate_steps
+                )
+                
+                if extracted_output:
+                    self.logger.info(f"Resposta extraída com sucesso de intermediate_steps")
+                    response_type = extracted_type or "text"
+                    final_output = extracted_output
+                else:
+                    # Se não conseguiu extrair, tentar reprocessar com prompt mais direto
+                    self.logger.warning("Não foi possível extrair de intermediate_steps. Tentando reprocessar...")
+                    
+                    try:
+                        retry_query = (
+                            f"Por favor, responda diretamente à seguinte pergunta: {query}\n\n"
+                            f"IMPORTANTE: Você DEVE fornecer uma resposta completa e útil. "
+                            f"Use a ferramenta consultar_dados se necessário."
+                        )
+                        
+                        retry_response = self.agent_executor.invoke(
+                            {"input": retry_query, "chat_history": chat_history}, 
+                            config=config
+                        )
+                        
+                        retry_output = retry_response.get("output", "")
+                        retry_steps = retry_response.get("intermediate_steps", [])
+                        
+                        if retry_output and str(retry_output).strip():
+                            self.logger.info("Reprocessamento obteve resposta válida")
+                            final_output = retry_output
+                        else:
+                            # Tentar extrair do retry
+                            _, extracted = self._extract_response_from_intermediate_steps(retry_steps)
+                            if extracted:
+                                final_output = extracted
+                            else:
+                                self.logger.error("Reprocessamento também retornou vazio")
+                                
+                    except Exception as retry_error:
+                        self.logger.error(f"Erro no reprocessamento: {retry_error}")
+                    
+                    # Se ainda estiver vazio, retornar mensagem de erro amigável
+                    if not final_output or not str(final_output).strip():
+                        self.logger.error(
+                            "Não foi possível obter resposta após múltiplas tentativas"
+                        )
+                        return {
+                            "type": "error",
+                            "output": (
+                                "Desculpe, não consegui processar sua consulta no momento. "
+                                "Por favor, tente reformular sua pergunta de forma mais específica. "
+                                "Por exemplo: 'Qual é o lucro do produto 10?' ou "
+                                "'Mostre o gráfico de vendas do item 5'."
+                            ),
+                        }
+            
+            # =====================================================================
+            # Processamento de gráficos (quando output não estava vazio)
+            # =====================================================================
+            
+            if intermediate_steps and response_type == "text":
+                for step in reversed(intermediate_steps):
                     if isinstance(step, tuple) and len(step) == 2:
                         action, observation = step
                         
-                        # Se a observação for um dicionário de uma ferramenta de gráfico bem-sucedida
-                        if isinstance(observation, dict) and observation.get("status") == "success" and "chart_data" in observation:
-                            self.logger.info(f"Extraindo dados do gráfico da ferramenta: {action.tool}")
-                            final_output = observation["chart_data"]
-                            response_type = "chart"
-                            save_chart(final_output)  # Salvar o gráfico
-                            break
-                        
-                        # Lógica existente para ferramentas que retornam string
-                        elif isinstance(action, AgentAction) and isinstance(observation, str):
-                            if action.tool == "consultar_dados":
-                                final_output = observation
-                                self.logger.info(f"Usando saída direta da ferramenta consultar_dados: {final_output}")
+                        # Se a observação for um dicionário de gráfico
+                        if isinstance(observation, dict):
+                            if observation.get("status") == "success" and "chart_data" in observation:
+                                self.logger.info(f"Gráfico detectado da ferramenta: {action.tool}")
+                                final_output = observation["chart_data"]
+                                response_type = "chart"
+                                save_chart(final_output)
                                 break
 
-            # Se o tipo de resposta for gráfico, retorna diretamente
+            # Se for gráfico, retornar diretamente
             if response_type == "chart":
                 return {
                     "type": "chart",
                     "output": final_output,
                 }
 
-            # Se o tipo de resposta for gráfico, retorna diretamente
-            if response_type == "chart":
-                return {
-                    "type": "chart",
-                    "output": final_output,
-                }
-
-            # Se a resposta final for um AgentFinish, o output já está no formato final
-            # A verificação 'and response.get("output")' foi removida para permitir strings vazias,
-            # mas o log mostra que o LLM está retornando uma string vazia.
-            # Vamos garantir que o output seja capturado, mesmo que vazio, e o parse_agent_response lide com isso.
-            if isinstance(response.get("output"), str):
-                final_output = response["output"]
+            # Processar resposta de texto
+            if isinstance(final_output, str) and final_output.strip():
+                # Usar o parser para processar a resposta
+                try:
+                    parsed_type, processed = parse_agent_response(final_output)
+                    return {
+                        "type": parsed_type or "text",
+                        "output": processed.get("output", final_output),
+                    }
+                except Exception as parse_error:
+                    self.logger.warning(f"Erro no parse_agent_response: {parse_error}")
+                    return {
+                        "type": "text",
+                        "output": final_output,
+                    }
             
-            # Processamento legado para texto (se necessário, mas o output do LLM deve ser o principal)
-            # A função parse_agent_response é mantida para compatibilidade, mas o foco é o output do LLM
-            response_type, processed = parse_agent_response(final_output)
-            
-            # Retorna o output processado ou o output final do LLM como fallback
+            # Fallback final
             return {
                 "type": "text",
-                "output": processed.get("output", final_output),
+                "output": str(final_output) if final_output else "Não foi possível gerar uma resposta.",
             }
 
         except Exception as e:
             self.logger.error(f"Erro ao invocar o agente LangChain: {e}", exc_info=True)
+            
+            # Verificar se é erro de API key
+            error_msg = str(e).lower()
+            if "403" in error_msg or "api key" in error_msg or "leaked" in error_msg:
+                return {
+                    "type": "error",
+                    "output": (
+                        "Erro de autenticação com o serviço de IA. "
+                        "Por favor, verifique se a API key está configurada corretamente."
+                    ),
+                }
+            
             return {
                 "type": "error",
                 "output": (
