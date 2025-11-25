@@ -1,6 +1,15 @@
 # core/agents/tool_agent.py
+"""
+Tool Agent - Agente responsável por executar ferramentas de BI.
+
+CORREÇÕES APLICADAS:
+1. Execução manual de ferramentas quando AgentExecutor não executa
+2. Tratamento de tool_calls do Gemini
+3. Melhor extração de respostas
+"""
+
 import logging
-import sys
+import json
 from typing import Any, Dict, List
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
@@ -28,6 +37,10 @@ class ToolAgent:
         self.langchain_llm = CustomLangChainLLM(llm_adapter=self.llm_adapter)
 
         self.tools = unified_tools + date_time_tools + chart_tools
+        
+        # Criar um dicionário de ferramentas para acesso rápido
+        self.tools_dict = {tool.name: tool for tool in self.tools}
+        
         self.agent_executor = self._create_agent_executor()
         self.logger.info("ToolAgent inicializado com adaptador Gemini.")
 
@@ -55,14 +68,10 @@ class ToolAgent:
                     "❌ ERRADO: 'O valor da coluna SALDO para ITEM='5' é 150'\n"
                     "✅ CORRETO: 'O item 5 tem **150 unidades** em estoque.'\n\n"
 
-                    "❌ ERRADO: 'DIAS_COBERTURA do produto 9 é 45'\n"
-                    "✅ CORRETO: 'O produto 9 tem uma cobertura de estoque de **45 dias**.'\n\n"
-
                     "REGRA FUNDAMENTAL: SEMPRE que o usuário perguntar sobre dados de produtos/items, você DEVE usar a ferramenta `consultar_dados`. "
                     "NUNCA responda que não pode determinar algo sem antes tentar usar a ferramenta apropriada.\n\n"
 
-                    "REGRA DE DASHBOARDS: Quando o usuário pedir 'dashboard', 'visão geral', 'resumo executivo', ou 'análise completa', "
-                    "use AUTOMATICAMENTE o `gerar_dashboard_executivo()` pois ele fornece 6 gráficos otimizados para decisão gerencial.\n\n"
+                    "REGRA DE GRÁFICOS: Quando o usuário pedir um gráfico, use a ferramenta apropriada e SEMPRE forneça uma resposta confirmando a geração.\n\n"
 
                     "## COLUNAS DISPONÍVEIS NO DATASET:\n"
                     "Use os nomes EXATOS das colunas abaixo ao chamar as ferramentas (mas NÃO os mencione na resposta final!):\n\n"
@@ -93,77 +102,29 @@ class ToolAgent:
                     "- QTD ULTIMA COMPRA (quantidade da última compra)\n\n"
 
                     "### Vendas Mensais:\n"
-                    "- VENDA QTD JAN (vendas em janeiro)\n"
-                    "- VENDA QTD FEV (vendas em fevereiro)\n"
-                    "- VENDA QTD MAR (vendas em março)\n"
-                    "- VENDA QTD ABR (vendas em abril)\n"
-                    "- VENDA QTD MAI (vendas em maio)\n"
-                    "- VENDA QTD JUN (vendas em junho)\n"
-                    "- VENDA QTD JUL (vendas em julho)\n"
-                    "- VENDA QTD AGO (vendas em agosto)\n"
-                    "- VENDA QTD SET (vendas em setembro)\n"
-                    "- VENDA QTD OUT (vendas em outubro)\n"
-                    "- VENDA QTD NOV (vendas em novembro)\n"
-                    "- VENDA QTD DEZ (vendas em dezembro)\n\n"
+                    "- VENDA QTD JAN até VENDA QTD DEZ\n\n"
 
                     "### Análises e Métricas:\n"
-                    "- VENDAS_TOTAL_ANO (total de vendas no ano)\n"
-                    "- VENDAS_MEDIA_MENSAL (média de vendas mensal)\n"
-                    "- DIAS_COBERTURA (dias de cobertura de estoque)\n"
-                    "- STATUS_ESTOQUE (status do estoque)\n\n"
-
-                    "### Valores de Estoque:\n"
-                    "- VLR ESTOQUE VENDA (valor do estoque a preço de venda)\n"
-                    "- VLR ESTOQUE CUSTO (valor do estoque a preço de custo)\n\n"
-
-                    "### Datas:\n"
-                    "- DT CADASTRO (data de cadastro do produto)\n"
-                    "- DT ULTIMA COMPRA (data da última compra)\n\n"
+                    "- VENDAS_TOTAL_ANO, VENDAS_MEDIA_MENSAL, DIAS_COBERTURA, STATUS_ESTOQUE\n\n"
 
                     "## REGRAS DE USO DAS FERRAMENTAS:\n\n"
 
                     "1. Para consultar dados específicos de um produto/item:\n"
-                    "   - Use: `consultar_dados(coluna='ITEM', valor='X', coluna_retorno='NOME_COLUNA')`\n"
-                    "   - Exemplo 1: 'Qual o lucro do produto 9?' → `consultar_dados(coluna='ITEM', valor='9', coluna_retorno='LUCRO R$')` → Responda: 'O lucro do item 9 é **R$ X,XX**.'\n"
-                    "   - Exemplo 2: 'Qual o fabricante do item 5?' → `consultar_dados(coluna='ITEM', valor='5', coluna_retorno='FABRICANTE')` → Responda: 'O fabricante do item 5 é **[nome]**.'\n"
-                    "   - Exemplo 3: 'Quantos dias de cobertura tem o item 5?' → `consultar_dados(coluna='ITEM', valor='5', coluna_retorno='DIAS_COBERTURA')` → Responda: 'O item 5 tem uma cobertura de **X dias**.'\n\n"
+                    "   - Use: `consultar_dados(coluna='ITEM', valor='X', coluna_retorno='NOME_COLUNA')`\n\n"
 
-                    "2. Para obter TODOS os dados de um produto:\n"
-                    "   - Use: `consultar_dados(coluna='ITEM', valor='X')` SEM especificar coluna_retorno\n"
-                    "   - Exemplo: 'Me fale sobre o produto 9' → `consultar_dados(coluna='ITEM', valor='9')`\n\n"
+                    "2. Para gráficos de produto específico:\n"
+                    "   - Use: `gerar_grafico_vendas_mensais_produto(codigo_produto=X)`\n\n"
 
-                    "3. Para listar colunas disponíveis:\n"
-                    "   - Use: `listar_colunas_disponiveis()` quando o usuário perguntar sobre estrutura dos dados\n\n"
+                    "3. Para gráficos de vendas por grupo/categoria:\n"
+                    "   - Use: `gerar_grafico_vendas_por_grupo(nome_grupo='NOME_DO_GRUPO')`\n\n"
 
-                    "4. Para gráficos de produto específico:\n"
-                    "   - Use: `gerar_grafico_vendas_mensais_produto(codigo_produto=X)`\n"
-                    "   - Exemplo: 'Gráfico de vendas do produto 9' → `gerar_grafico_vendas_mensais_produto(codigo_produto=9)`\n\n"
-
-                    "5. Para gráficos de vendas por grupo/categoria:\n"
-                    "   - Use: `gerar_grafico_vendas_por_grupo(nome_grupo='NOME_DO_GRUPO')`\n"
-                    "   - Exemplo 1: 'Gráfico de vendas do grupo de esmaltes' → `gerar_grafico_vendas_por_grupo(nome_grupo='esmaltes')`\n\n"
-
-                    "6. Para rankings:\n"
+                    "4. Para rankings:\n"
                     "   - Use: `gerar_ranking_produtos_mais_vendidos(top_n=N)`\n\n"
 
-                    "7. Para dashboards completos:\n"
-                    "   - Dashboard Executivo (RECOMENDADO para visão geral): `gerar_dashboard_executivo()`\n\n"
+                    "5. Para dashboards completos:\n"
+                    "   - Use: `gerar_dashboard_executivo()`\n\n"
 
-                    "8. Para listar gráficos disponíveis:\n"
-                    "   - Use: `listar_graficos_disponiveis()` quando o usuário perguntar 'quais gráficos você pode gerar?'\n\n"
-
-                    "## TERMOS COMUNS E MAPEAMENTO:\n"
-                    "- 'lucro' ou 'rentabilidade' → LUCRO R$\n"
-                    "- 'margem' ou 'lucro percentual' → LUCRO TOTAL % ou LUCRO UNIT %\n"
-                    "- 'vendas' ou 'faturamento' → VENDA R$\n"
-                    "- 'produto', 'item' → ITEM\n"
-                    "- 'código' → CODIGO\n"
-                    "- 'estoque' ou 'saldo' → SALDO\n"
-                    "- 'cobertura', 'dias de cobertura' → DIAS_COBERTURA\n"
-                    "- 'status do estoque' → STATUS_ESTOQUE\n\n"
-
-                    "LEMBRE-SE: Sua resposta final deve ser NATURAL, AMIGÁVEL e SEM TERMOS TÉCNICOS. "
-                    "Transforme os dados brutos em uma resposta que um gerente de negócios gostaria de ouvir!"
+                    "LEMBRE-SE: Sua resposta final deve ser NATURAL, AMIGÁVEL e SEM TERMOS TÉCNICOS!"
                 ),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),
@@ -180,9 +141,41 @@ class ToolAgent:
             tools=self.tools,
             verbose=True,
             return_intermediate_steps=True,
-            handle_parsing_errors=True,  # CORREÇÃO: Adicionar tratamento de erros de parsing
-            max_iterations=5,  # CORREÇÃO: Limitar iterações para evitar loops
+            handle_parsing_errors=True,
+            max_iterations=5,
         )
+
+    def _execute_tool_manually(self, tool_name: str, tool_args: dict) -> Any:
+        """
+        Executa uma ferramenta manualmente quando o AgentExecutor não o faz.
+        
+        Args:
+            tool_name: Nome da ferramenta
+            tool_args: Argumentos da ferramenta
+            
+        Returns:
+            Resultado da execução da ferramenta
+        """
+        self.logger.info(f"Executando ferramenta manualmente: {tool_name} com args: {tool_args}")
+        
+        if tool_name not in self.tools_dict:
+            self.logger.error(f"Ferramenta não encontrada: {tool_name}")
+            return {"error": f"Ferramenta '{tool_name}' não encontrada"}
+        
+        tool = self.tools_dict[tool_name]
+        
+        try:
+            # Converter argumentos float para int se necessário (ex: codigo_produto)
+            for key, value in tool_args.items():
+                if isinstance(value, float) and value.is_integer():
+                    tool_args[key] = int(value)
+            
+            result = tool.invoke(tool_args)
+            self.logger.info(f"Resultado da ferramenta {tool_name}: {type(result)}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Erro ao executar ferramenta {tool_name}: {e}", exc_info=True)
+            return {"error": str(e)}
 
     def _extract_response_from_intermediate_steps(
         self, intermediate_steps: list
@@ -212,6 +205,15 @@ class ToolAgent:
         
         return None, None
 
+    def _get_last_llm_response(self) -> dict:
+        """
+        Obtém a última resposta do LLM do adapter.
+        Isso é necessário para acessar tool_calls quando o AgentExecutor não os processa.
+        """
+        # Acessar a última resposta através do adapter
+        # Isso depende de como o adapter armazena a última resposta
+        return getattr(self.langchain_llm, '_last_response', {})
+
     def process_query(
         self, query: str, chat_history: List[BaseMessage] = None
     ) -> Dict[str, Any]:
@@ -236,16 +238,13 @@ class ToolAgent:
             self.logger.debug(f"Resposta bruta do agente: {response}")
             self.logger.info(f"CONTEÚDO COMPLETO DA RESPOSTA DO AGENTE: {response}")
 
-            # Extrair output e intermediate_steps
             final_output = response.get("output", "")
             intermediate_steps = response.get("intermediate_steps", [])
             response_type = "text"
 
             # =====================================================================
-            # CORREÇÃO PRINCIPAL: Tratamento para resposta vazia
+            # CORREÇÃO: Verificar se há tool_calls não executados
             # =====================================================================
-            
-            # Verificar se o output está vazio ou é apenas whitespace
             is_output_empty = not final_output or not str(final_output).strip()
             
             if is_output_empty:
@@ -264,39 +263,78 @@ class ToolAgent:
                     response_type = extracted_type or "text"
                     final_output = extracted_output
                 else:
-                    # Se não conseguiu extrair, tentar reprocessar com prompt mais direto
-                    self.logger.warning("Não foi possível extrair de intermediate_steps. Tentando reprocessar...")
+                    # =====================================================================
+                    # CORREÇÃO PRINCIPAL: Executar ferramentas manualmente se necessário
+                    # =====================================================================
+                    self.logger.warning("Não foi possível extrair de intermediate_steps. Verificando tool_calls...")
                     
+                    # Fazer uma nova chamada ao LLM para obter tool_calls
                     try:
-                        retry_query = (
-                            f"Por favor, responda diretamente à seguinte pergunta: {query}\n\n"
-                            f"IMPORTANTE: Você DEVE fornecer uma resposta completa e útil. "
-                            f"Use a ferramenta consultar_dados se necessário."
+                        # Converter mensagens para o formato do adapter
+                        messages = [{"role": "user", "content": query}]
+                        
+                        # Preparar ferramentas no formato correto
+                        tools_declarations = []
+                        for tool in self.tools:
+                            tools_declarations.append({
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": tool.args if hasattr(tool, 'args') else {},
+                                },
+                            })
+                        
+                        tools_wrapper = {"function_declarations": tools_declarations}
+                        
+                        # Chamar o LLM diretamente
+                        llm_response = self.llm_adapter.get_completion(
+                            messages=messages, 
+                            tools=tools_wrapper
                         )
                         
-                        retry_response = self.agent_executor.invoke(
-                            {"input": retry_query, "chat_history": chat_history}, 
-                            config=config
-                        )
+                        self.logger.info(f"Resposta direta do LLM: {llm_response}")
                         
-                        retry_output = retry_response.get("output", "")
-                        retry_steps = retry_response.get("intermediate_steps", [])
-                        
-                        if retry_output and str(retry_output).strip():
-                            self.logger.info("Reprocessamento obteve resposta válida")
-                            final_output = retry_output
-                        else:
-                            # Tentar extrair do retry
-                            _, extracted = self._extract_response_from_intermediate_steps(retry_steps)
-                            if extracted:
-                                final_output = extracted
+                        # Se há tool_calls, executar manualmente
+                        if "tool_calls" in llm_response and llm_response["tool_calls"]:
+                            tool_call = llm_response["tool_calls"][0]
+                            tool_name = tool_call["function"]["name"]
+                            tool_args_str = tool_call["function"]["arguments"]
+                            
+                            try:
+                                tool_args = json.loads(tool_args_str)
+                            except json.JSONDecodeError:
+                                tool_args = {}
+                            
+                            self.logger.info(f"Executando ferramenta: {tool_name} com args: {tool_args}")
+                            
+                            # Executar a ferramenta
+                            tool_result = self._execute_tool_manually(tool_name, tool_args)
+                            
+                            # Verificar se é um gráfico
+                            if isinstance(tool_result, dict):
+                                if tool_result.get("status") == "success" and "chart_data" in tool_result:
+                                    self.logger.info("Gráfico gerado com sucesso!")
+                                    save_chart(tool_result["chart_data"])
+                                    return {
+                                        "type": "chart",
+                                        "output": tool_result["chart_data"],
+                                    }
+                                elif "error" in tool_result:
+                                    final_output = f"Erro ao executar a ferramenta: {tool_result['error']}"
+                                else:
+                                    # Formatar resultado como texto
+                                    final_output = str(tool_result)
                             else:
-                                self.logger.error("Reprocessamento também retornou vazio")
-                                
-                    except Exception as retry_error:
-                        self.logger.error(f"Erro no reprocessamento: {retry_error}")
+                                final_output = str(tool_result) if tool_result else "Operação concluída."
+                        
+                        elif llm_response.get("content"):
+                            final_output = llm_response["content"]
+                            
+                    except Exception as tool_error:
+                        self.logger.error(f"Erro ao executar ferramenta manualmente: {tool_error}", exc_info=True)
                     
-                    # Se ainda estiver vazio, retornar mensagem de erro amigável
+                    # Se ainda estiver vazio, retornar mensagem de erro
                     if not final_output or not str(final_output).strip():
                         self.logger.error(
                             "Não foi possível obter resposta após múltiplas tentativas"
@@ -314,13 +352,11 @@ class ToolAgent:
             # =====================================================================
             # Processamento de gráficos (quando output não estava vazio)
             # =====================================================================
-            
             if intermediate_steps and response_type == "text":
                 for step in reversed(intermediate_steps):
                     if isinstance(step, tuple) and len(step) == 2:
                         action, observation = step
                         
-                        # Se a observação for um dicionário de gráfico
                         if isinstance(observation, dict):
                             if observation.get("status") == "success" and "chart_data" in observation:
                                 self.logger.info(f"Gráfico detectado da ferramenta: {action.tool}")
@@ -338,7 +374,6 @@ class ToolAgent:
 
             # Processar resposta de texto
             if isinstance(final_output, str) and final_output.strip():
-                # Usar o parser para processar a resposta
                 try:
                     parsed_type, processed = parse_agent_response(final_output)
                     return {
@@ -361,7 +396,6 @@ class ToolAgent:
         except Exception as e:
             self.logger.error(f"Erro ao invocar o agente LangChain: {e}", exc_info=True)
             
-            # Verificar se é erro de API key
             error_msg = str(e).lower()
             if "403" in error_msg or "api key" in error_msg or "leaked" in error_msg:
                 return {
@@ -382,6 +416,4 @@ class ToolAgent:
             }
 
 
-def initialize_agent_for_session():
-    """Função de fábrica para inicializar o agente."""
-    return ToolAgent(llm_adapter=GeminiLLMAdapter())
+def initialize_agent_for_se
