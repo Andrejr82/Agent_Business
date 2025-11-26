@@ -8,7 +8,7 @@ import time
 import logging
 
 # Always use SQLite for authentication
-from core.database import sqlserver_auth as auth_db
+from core.database import postgres_auth as auth_db
 
 audit_logger = logging.getLogger("audit")
 

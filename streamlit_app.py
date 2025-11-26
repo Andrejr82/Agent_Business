@@ -17,7 +17,7 @@ try:
 except ImportError:
     HAS_PLOTLY = False
 
-from core.database import postgres_auth as auth_db
+from core import auth
 from core.query_processor import QueryProcessor
 from core.session_state import SESSION_STATE_KEYS
 from core.config.logging_config import setup_logging
