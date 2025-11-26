@@ -239,8 +239,16 @@ class Config:
     @property
     def SQLALCHEMY_DATABASE_URI(cls) -> str:
         """
-        Gera a string de conexão do SQLAlchemy a partir das variáveis de ambiente.
+        Gera a string de conexão do SQLAlchemy.
+        Prioriza a variável SQLALCHEMY_DATABASE_URI se existir (para PostgreSQL/Supabase).
+        Caso contrário, constrói a string para SQL Server usando as variáveis individuais.
         """
+        # Tenta pegar a URI completa primeiro (Supabase/PostgreSQL)
+        uri = cls._get_secret("SQLALCHEMY_DATABASE_URI")
+        if uri:
+            return uri
+
+        # Fallback para SQL Server (construção manual)
         password_quoted = quote_plus(cls.DB_PASSWORD) if cls.DB_PASSWORD else ""
         driver_quoted = quote_plus(cls.DB_DRIVER)
 

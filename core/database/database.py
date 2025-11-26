@@ -38,15 +38,26 @@ class DatabaseConnectionManager:
             logger.debug("Usando URI: %s@***", uri.split("@")[0])
 
             # Criar engine com pool configurado
-            self._engine = create_engine(
-                uri,
-                pool_size=10,
-                max_overflow=20,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-                echo=False,
-                isolation_level="READ_COMMITTED",
-            )
+            is_mssql = "mssql" in uri
+            
+            engine_args = {
+                "pool_size": 10,
+                "max_overflow": 20,
+                "pool_pre_ping": True,
+                "pool_recycle": 3600,
+                "echo": False,
+                "isolation_level": "READ_COMMITTED",
+            }
+            
+            # Argumentos específicos para PostgreSQL (Supabase)
+            if "postgresql" in uri or "postgres" in uri:
+                # Supabase requer SSL mode require para conexões seguras
+                if "?" not in uri:
+                    uri += "?sslmode=require"
+                elif "sslmode" not in uri:
+                    uri += "&sslmode=require"
+            
+            self._engine = create_engine(uri, **engine_args)
 
             # Configurar listener para tentar recuperar conexões perdidas
             @event.listens_for(self._engine, "connect")
