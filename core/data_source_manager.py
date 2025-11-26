@@ -48,30 +48,36 @@ class FilialMadureiraDataSource:
         return self._connected and self.file_path.exists()
 
     def _load_data(self, force_reload: bool = False) -> pd.DataFrame:
-        """Carrega dados com cache."""
-        if force_reload or self._df_cache is None:
-            try:
-                self._df_cache = pd.read_parquet(self.file_path)
-                logger.info(f"✓ Dados carregados: {self._df_cache.shape}")
+        """
+        Carrega os dados do arquivo Parquet, aplicando correções de tipo.
+        Levanta um erro se o arquivo não for encontrado ou se houver um problema ao carregá-lo.
+        """
+        if not force_reload and self._df_cache is not None:
+            return self._df_cache.copy()
 
-                # Forçar tipos de dados corretos para colunas problemáticas
-                # Colunas que deveriam ser strings
-                for col in ["DESCRIÇÃO", "FABRICANTE"]:
-                    if col in self._df_cache.columns:
-                        self._df_cache[col] = self._df_cache[col].astype(str).replace('nan', pd.NA) # Converte NaN para NA do Pandas
+        logger.info(f"Carregando dados de: {self.file_path}")
+        try:
+            df = pd.read_parquet(self.file_path)
+            logger.info(f"✓ Dados carregados: {df.shape}")
 
-                # Colunas que deveriam ser datetime
-                for col in ["DT CADASTRO", "DT ULTIMA COMPRA"]:
-                    if col in self._df_cache.columns:
-                        # Tenta converter para datetime, coercing erros para NaT (Not a Time)
-                        self._df_cache[col] = pd.to_datetime(self._df_cache[col], errors='coerce')
+            # Forçar tipos de dados corretos para colunas problemáticas
+            for col in ["DESCRIÇÃO", "FABRICANTE"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).replace('nan', pd.NA)
 
-            except Exception as e:
-                logger.error(f"Erro ao carregar dados: {e}")
-                self._df_cache = pd.DataFrame()
+            for col in ["DT CADASTRO", "DT ULTIMA COMPRA"]:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+            
+            self._df_cache = df
+            return self._df_cache.copy()
 
-        df_copy = self._df_cache.copy() if not self._df_cache.empty else pd.DataFrame()
-        return df_copy
+        except FileNotFoundError as e:
+            logger.error(f"✗ ERRO CRÍTICO: Arquivo de dados não encontrado em '{self.file_path}'. A aplicação não pode continuar sem dados.")
+            raise  # Re-levanta a exceção para que o erro seja tratado em um nível superior
+        except Exception as e:
+            logger.error(f"✗ ERRO CRÍTICO: Falha ao ler ou processar o arquivo Parquet '{self.file_path}'. Detalhes: {e}")
+            raise
 
     def get_data(self, limit: int = None) -> pd.DataFrame:
         """Obtém todos os dados ou limitados."""

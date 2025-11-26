@@ -16,18 +16,15 @@ def supervisor():
     """
     Cria uma instância do SupervisorAgent com seus agentes especialistas e LLMs mockados.
     """
-    with patch("core.agents.supervisor_agent.ToolAgent") as MockToolAgent:
-
-        mock_tool_agent = MockToolAgent.return_value
-        mock_tool_agent.process_query.return_value = {"output": "Resposta do ToolAgent"}
+    with patch("core.agents.tool_agent.ToolAgent") as MockToolAgent:
+        mock_tool_agent_instance = MockToolAgent.return_value
+        mock_tool_agent_instance.process_query.return_value = {"output": "Resposta do ToolAgent"}
 
         mock_gemini_adapter = MagicMock(spec=GeminiLLMAdapter)
 
         supervisor_instance = SupervisorAgent(
             gemini_adapter=mock_gemini_adapter,
         )
-
-        supervisor_instance.tool_agent = mock_tool_agent
 
         yield supervisor_instance
 

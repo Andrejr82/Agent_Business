@@ -613,7 +613,7 @@ def gerar_grafico_vendas_por_produto(
     logger.info(
         f"Gerando gráfico de vendas do produto {codigo_produto} (alias)"
     )
-    return gerar_grafico_vendas_mensais_produto(codigo_produto=codigo_produto)
+    return gerar_grafico_vendas_mensais_produto.invoke({"codigo_produto": codigo_produto})
 
 
 @tool

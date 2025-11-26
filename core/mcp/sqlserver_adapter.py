@@ -5,11 +5,16 @@ from typing import Any, Dict, Optional
 
 import pyodbc
 
+# Garante que o diretório de log exista
+log_dir = "logs"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "mcp_sqlserver.log")
+
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    filename="logs/mcp_sqlserver.log",
+    filename=log_file,
     filemode="a",
 )
 logger = logging.getLogger("mcp_sqlserver_adapter")

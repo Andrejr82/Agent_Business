@@ -110,7 +110,7 @@ Cole o conteúdo abaixo (substituindo pelos valores reais):
 
 ```toml
 # Secrets do Streamlit Cloud
-GEMINI_API_KEY = "AIzaSyBRX6Tae8RHs5v2Gr6GXd4s-SZw5V_djRw
+GEMINI_API_KEY = "SUA_CHAVE_GEMINI_REAL"
 GEMINI_MODEL_NAME = "gemini-2.0-flash-lite"
 
 # Opcional: SQL Server

@@ -56,7 +56,10 @@ class GeminiLLMAdapter(BaseLLMAdapter):
             )
 
         if not Config().GEMINI_API_KEY:
-            raise ValueError("GEMINI_API_KEY não configurada no arquivo .env")
+            raise ValueError(
+                "GEMINI_API_KEY não configurada. "
+                "Defina a variável de ambiente GEMINI_API_KEY ou adicione-a ao seu arquivo .streamlit/secrets.toml."
+            )
 
         genai.configure(api_key=Config().GEMINI_API_KEY)
 
