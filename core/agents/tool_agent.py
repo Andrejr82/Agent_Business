@@ -247,6 +247,41 @@ class ToolAgent:
             # =====================================================================
             is_output_empty = not final_output or not str(final_output).strip()
             
+            # Detectar intenção de gráfico na query do usuário
+            chart_keywords = [
+                "gráfico", "grafico", "chart", "plot", "visualizar", "visualização", 
+                "dashboard", "pizza", "barras", "linha", "histograma"
+            ]
+            has_chart_intent = any(k in query.lower() for k in chart_keywords)
+            
+            # Se tem intenção de gráfico mas não retornou tipo chart, forçar retry
+            if has_chart_intent and response_type != "chart" and not is_output_empty:
+                # Verificar se alguma ferramenta foi chamada nos passos intermediários
+                tools_called = [step[0].tool for step in intermediate_steps] if intermediate_steps else []
+                chart_tools_called = any("grafico" in t or "dashboard" in t for t in tools_called)
+                
+                if not chart_tools_called:
+                    self.logger.warning("Intenção de gráfico detectada mas nenhuma ferramenta de gráfico foi chamada. Forçando retry...")
+                    
+                    # Retry com instrução explícita
+                    retry_query = (
+                        f"{query}\n\n"
+                        "SYSTEM_INSTRUCTION: O usuário pediu explicitamente um gráfico. "
+                        "Você DEVE chamar uma ferramenta de geração de gráfico (ex: gerar_grafico_automatico). "
+                        "NÃO responda apenas com texto. CHAME A FERRAMENTA AGORA."
+                    )
+                    
+                    self.logger.info("Enviando query de retry para forçar gráfico...")
+                    response = self.agent_executor.invoke(
+                        {"input": retry_query, "chat_history": chat_history}, config=config
+                    )
+                    
+                    final_output = response.get("output", "")
+                    intermediate_steps = response.get("intermediate_steps", [])
+                    
+                    # Reavaliar se agora temos um gráfico
+                    is_output_empty = not final_output or not str(final_output).strip()
+            
             if is_output_empty:
                 self.logger.warning(
                     f"Output do agente está vazio. "
