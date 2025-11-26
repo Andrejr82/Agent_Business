@@ -416,4 +416,3 @@ class ToolAgent:
             }
 
 
-def initialize_agent_for_se
