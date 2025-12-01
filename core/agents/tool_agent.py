@@ -6,6 +6,7 @@ CORREÇÕES APLICADAS:
 1. Execução manual de ferramentas quando AgentExecutor não executa
 2. Tratamento de tool_calls do Gemini
 3. Melhor extração de respostas
+4. Correção de retorno de gráfico para evitar loop do LLM
 """
 
 import logging
@@ -205,15 +206,6 @@ class ToolAgent:
         
         return None, None
 
-    def _get_last_llm_response(self) -> dict:
-        """
-        Obtém a última resposta do LLM do adapter.
-        Isso é necessário para acessar tool_calls quando o AgentExecutor não os processa.
-        """
-        # Acessar a última resposta através do adapter
-        # Isso depende de como o adapter armazena a última resposta
-        return getattr(self.langchain_llm, '_last_response', {})
-
     def process_query(
         self, query: str, chat_history: List[BaseMessage] = None
     ) -> Dict[str, Any]:
@@ -392,12 +384,23 @@ class ToolAgent:
                     if isinstance(step, tuple) and len(step) == 2:
                         action, observation = step
                         
-                        if isinstance(observation, dict):
-                            if observation.get("status") == "success" and "chart_data" in observation:
-                                self.logger.info(f"Gráfico detectado da ferramenta: {action.tool}")
-                                final_output = observation["chart_data"]
-                                response_type = "chart"
-                                save_chart(final_output)
+                        # Se a observação for um dicionário de uma ferramenta de gráfico bem-sucedida
+                        if isinstance(observation, dict) and observation.get("status") == "success" and "chart_data" in observation:
+                            self.logger.info(f"Extraindo dados do gráfico da ferramenta: {action.tool}")
+                            final_output = observation["chart_data"]
+                            response_type = "chart"
+                            # save_chart(final_output)  # Removido para simplificar e evitar erros de serialização
+                            # Forçar o retorno imediato do gráfico para evitar que o LLM tente responder em texto
+                            return {
+                                "type": "chart",
+                                "output": final_output,
+                            }
+                        
+                        # Lógica existente para ferramentas que retornam string
+                        elif isinstance(action, AgentAction) and isinstance(observation, str):
+                            if action.tool == "consultar_dados":
+                                final_output = observation
+                                self.logger.info(f"Usando saída direta da ferramenta consultar_dados: {final_output}")
                                 break
 
             # Se for gráfico, retornar diretamente
@@ -409,6 +412,13 @@ class ToolAgent:
 
             # Processar resposta de texto
             if isinstance(final_output, str) and final_output.strip():
+                # Se a resposta final for um AgentFinish, o output já está no formato final
+                # A verificação 'and response.get("output")' foi removida para permitir strings vazias,
+                # mas o log mostra que o LLM está retornando uma string vazia.
+                # Vamos garantir que o output seja capturado, mesmo que vazio, e o parse_agent_response lide com isso.
+                if isinstance(response.get("output"), str):
+                    final_output = response["output"]
+                
                 try:
                     parsed_type, processed = parse_agent_response(final_output)
                     return {
@@ -449,5 +459,3 @@ class ToolAgent:
                     "sua pergunta."
                 ),
             }
-
-
