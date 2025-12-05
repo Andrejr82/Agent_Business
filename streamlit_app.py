@@ -276,13 +276,13 @@ def show_bi_assistant():
                         )
                     else:
                         # Fallback se não for figura ou JSON válido
-                        st.error("Erro ao processar gráfico: formato inválido.")
-                        st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
-                            {
-                                "role": ROLES["ASSISTANT"],
-                                "output": "Erro ao gerar gráfico: formato inválido.",
-                            }
-                        )
+                            st.error(f"Erro ao processar gráfico: formato inválido. Output: {response['output'][:100] if isinstance(response['output'], str) else 'Objeto não string'}...")
+                            st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
+                                {
+                                    "role": ROLES["ASSISTANT"],
+                                    "output": f"Erro ao gerar gráfico: formato inválido. Detalhe: {response['output'][:100] if isinstance(response['output'], str) else 'Objeto não string'}...",
+                                }
+                            )
                 else:
                     st.markdown(response["output"])
                     st.session_state[SESSION_STATE_KEYS["MESSAGES"]].append(
