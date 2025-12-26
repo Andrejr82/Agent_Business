@@ -155,12 +155,25 @@ def show_bi_assistant():
 
     # Exemplos de perguntas na barra lateral
     st.sidebar.markdown("### Exemplos de Perguntas:")
-    st.sidebar.info("Qual o preço do produto 719445?")
-    st.sidebar.info("Liste os produtos da categoria 'BRINQUEDOS'")
-    st.sidebar.info("Mostre um gráfico de vendas para o produto 610403")
+
+    example_prompts = [
+        "Qual o preço do produto 719445?",
+        "Liste os produtos da categoria 'BRINQUEDOS'",
+        "Mostre um gráfico de vendas para o produto 610403"
+    ]
+
+    selected_example = None
+    for example in example_prompts:
+        if st.sidebar.button(example, use_container_width=True):
+            selected_example = example
 
     # Entrada do usuário
-    if prompt := st.chat_input("Faça uma pergunta sobre seus dados..."):
+    chat_prompt = st.chat_input("Faça uma pergunta sobre seus dados...")
+
+    # Determinar qual prompt usar
+    prompt = chat_prompt if chat_prompt else selected_example
+
+    if prompt:
         # Input validation and sanitization
         if not prompt.strip():  # Check for empty or whitespace-only input
             st.warning("Por favor, digite uma pergunta válida.")
