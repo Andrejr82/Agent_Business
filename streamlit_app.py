@@ -159,6 +159,38 @@ def show_bi_assistant():
     st.sidebar.info("Liste os produtos da categoria 'BRINQUEDOS'")
     st.sidebar.info("Mostre um gráfico de vendas para o produto 610403")
 
+    # Ações
+    st.sidebar.markdown("### Ações")
+    if st.sidebar.button("🗑️ Limpar Conversa", type="secondary"):
+        # Resetar apenas as mensagens, mantendo a autenticação
+        if SESSION_STATE_KEYS["QUERY_PROCESSOR"] not in st.session_state or st.session_state[SESSION_STATE_KEYS["QUERY_PROCESSOR"]] is None:
+             st.session_state[SESSION_STATE_KEYS["MESSAGES"]] = [
+                {
+                    "role": ROLES["ASSISTANT"],
+                    "output": "⚠️ **GEMINI_API_KEY não configurada!**\n\n"
+                             "Para usar o agente BI, você precisa:\n\n"
+                             "1. Acessar **Settings** (⋮ menu) no Streamlit Cloud\n"
+                             "2. Ir na aba **Secrets**\n"
+                             "3. Adicionar:\n"
+                             "```\n"
+                             "GEMINI_API_KEY = \"sua_chave_aqui\"\n"
+                             "GEMINI_MODEL_NAME = \"gemini-2.0-flash-lite\"\n"
+                             "```\n\n"
+                             "4. Obter chave em: https://aistudio.google.com/app/apikey\n"
+                             "5. Salvar e aguardar app reiniciar\n\n"
+                             "Enquanto isso, você pode explorar os **Dashboards** no menu lateral! 📊",
+                }
+            ]
+        else:
+            st.session_state[SESSION_STATE_KEYS["MESSAGES"]] = [
+                {
+                    "role": ROLES["ASSISTANT"],
+                    "output": "Olá! Como posso ajudar você hoje?",
+                }
+            ]
+        st.toast("Histórico de conversa limpo!", icon="🧹")
+        st.rerun()
+
     # Entrada do usuário
     if prompt := st.chat_input("Faça uma pergunta sobre seus dados..."):
         # Input validation and sanitization

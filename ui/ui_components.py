@@ -15,7 +15,7 @@ def get_image_download_link(fig, filename, text):
         fig.write_image(buf, format="png")
         buf.seek(0)
         b64 = base64.b64encode(buf.read()).decode()
-        href = f'<a href="data:image/png;base64,{b64}" download="{filename}.png">{text}</a>'
+        href = f'<a class="download-button" href="data:image/png;base64,{b64}" download="{filename}.png">{text}</a>'
         return href
     except (ImportError, ValueError):
         # Alternativa quando kaleido não está disponível
@@ -24,7 +24,7 @@ def get_image_download_link(fig, filename, text):
         fig.write_html(buf)
         html_bytes = buf.getvalue().encode()
         b64 = base64.b64encode(html_bytes).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="{filename}.html">{text} (HTML)</a>'
+        href = f'<a class="download-button" href="data:text/html;base64,{b64}" download="{filename}.html">{text} (HTML)</a>'
         st.warning(
             "Pacote 'kaleido' não encontrado. Exportando como HTML em vez de PNG. Para exportar como PNG, instale o pacote com: pip install kaleido"
         )
@@ -36,7 +36,7 @@ def get_csv_download_link(df, filename, text):
     """Gera um link para download dos dados como CSV"""
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}.csv">{text}</a>'
+    href = f'<a class="download-button" href="data:file/csv;base64,{b64}" download="{filename}.csv">{text}</a>'
     return href
 
 
